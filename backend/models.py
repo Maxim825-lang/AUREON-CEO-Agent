@@ -128,7 +128,7 @@ class Settings(Base):
     founder_name = Column(String(100), default="Максим")
     main_goal = Column(Text, default="Подготовка AUREON к WAIC 2027")
     revenue_goal = Column(Float, default=100000)
-    telegram_channel = Column(String(100), default="@aureon_ai")
+    telegram_channel = Column(String(100), default="@manager_aureon")
     openai_api_key = Column(String(200), default="")
     autonomy_level = Column(Integer, default=1)
     waic_date = Column(String(50), default="2027-07-01")

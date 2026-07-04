@@ -115,7 +115,7 @@ OUTREACH_TEMPLATE = """Привет, {name}!
 
 С уважением,
 AI-представитель AUREON
-Telegram: @aureon_ai"""
+Telegram: @manager_aureon"""
 
 
 def generate_search_queries(niche: str, location: str, service: str, max_results: int = 10) -> list:

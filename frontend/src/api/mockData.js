@@ -98,7 +98,7 @@ export const MOCK_SETTINGS = {
   founder_name: "Максим",
   main_goal: "Подготовка AUREON к WAIC 2027",
   revenue_goal: 100000,
-  telegram_channel: "@aureon_ai",
+  telegram_channel: "@manager_aureon",
   openai_api_key: "",
   autonomy_level: 1,
   waic_date: "2027-07-01",

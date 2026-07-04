@@ -42,7 +42,7 @@ export default function Services() {
         <div style={{ fontWeight: 600, color: 'var(--gold)', marginBottom: '6px' }}>Как работает AUREON</div>
         Все цены — стартовые. Финальная стоимость зависит от сложности и требований клиента.
         Оплата: 50% предоплата, 50% после сдачи. Гарантия: 1 месяц поддержки включена.
-        Контакт: <span style={{ color: 'var(--gold)' }}>@aureon_ai</span> в Telegram.
+        Контакт: <span style={{ color: 'var(--gold)' }}>@manager_aureon</span> в Telegram.
       </div>
     </div>
   )
