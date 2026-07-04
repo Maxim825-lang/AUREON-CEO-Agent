@@ -257,6 +257,31 @@ class Conversation(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    # ── Sales Brain fields ────────────────────────────────────────────────────
+    deal_probability          = Column(Integer, default=0)
+    urgency                   = Column(String(20), default="low")
+    client_temperature        = Column(String(20), default="cold")
+    budget_confidence         = Column(Integer, default=0)
+    requirements_completeness = Column(Integer, default=0)
+    # new/discovery/qualified/proposal/negotiation/closing/won/lost
+    decision_stage            = Column(String(30), default="new")
+    estimated_revenue         = Column(Float, default=0.0)
+    estimated_close_date      = Column(String(50))
+    recommended_next_action   = Column(String(200))
+    risk_level                = Column(String(20), default="medium")
+    pain_points               = Column(JSON, default=list)
+    goals                     = Column(JSON, default=list)
+    constraints               = Column(JSON, default=list)
+    must_have                 = Column(JSON, default=list)
+    nice_to_have              = Column(JSON, default=list)
+    budget_range              = Column(String(200))
+    deadline                  = Column(String(200))
+    competitors               = Column(JSON, default=list)
+    preferred_solution        = Column(String(200))
+    last_client_message_at    = Column(DateTime)
+    follow_up_count           = Column(Integer, default=0)
+    is_stale                  = Column(Boolean, default=False)
+
 
 class ConversationMessage(Base):
     __tablename__ = "conversation_messages"
@@ -265,3 +290,12 @@ class ConversationMessage(Base):
     sender = Column(String(20), nullable=False)  # client / agent / admin
     text = Column(Text, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class ConversationEvent(Base):
+    __tablename__ = "conversation_events"
+    id              = Column(Integer, primary_key=True)
+    conversation_id = Column(Integer, nullable=False)
+    event_type      = Column(String(50))
+    description     = Column(Text)
+    created_at      = Column(DateTime, server_default=func.now())

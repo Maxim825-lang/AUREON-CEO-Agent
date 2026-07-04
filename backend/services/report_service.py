@@ -167,6 +167,29 @@ def generate_ceo_report(db, report_type: str = "CEO Report") -> str:
         f"→ {action_hint}",
     ]
 
+    # ── Sales Brain pipeline ──────────────────────────────────────────────────
+    try:
+        from services.sales_brain import get_sales_summary
+        ss = get_sales_summary(db)
+        if ss.get("total_active", 0) > 0:
+            lines += [
+                "",
+                f"<b>{sep}</b>",
+                "<b>DISCOVERY PIPELINE</b>",
+                f"🔥 Hot: {ss['hot_leads']}  🌡 Active: {ss['total_active']}",
+                f"📄 Ready for proposal: {ss['ready_for_proposal']}",
+                f"⏳ Waiting reply: {ss['waiting_client_reply']}",
+                f"⚠ Needs human: {ss['needs_human']}  🚨 At risk: {ss['at_risk']}",
+                f"💰 Pipeline: ${ss['pipeline_revenue']:,.0f}",
+            ]
+            for op in ss.get("top_opportunities", [])[:3]:
+                lines.append(
+                    f"  #{op['id']} {op['stage']} {op['temp']} "
+                    f"→ {op['prob']}% · ${op['revenue']:,.0f}"
+                )
+    except Exception:
+        pass
+
     if memory_lines:
         lines += [
             "",

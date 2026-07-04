@@ -264,6 +264,22 @@ def _run_sales_auto_job():
         db.close()
 
 
+def _run_follow_up_check():
+    from database import SessionLocal
+    from services.sales_brain import check_follow_ups
+    db = SessionLocal()
+    try:
+        results = check_follow_ups(db)
+        if results:
+            summary = f"Follow-up check: {len(results)} conversations flagged"
+            _log("Sales Brain Follow-ups", summary)
+            _save_action_log(db, "Sales Brain", "Follow-up check", summary)
+    except Exception as e:
+        logger.error(f"Follow-up check error: {e}")
+    finally:
+        db.close()
+
+
 def _run_morning_report():
     reports_enabled = os.getenv("CEO_REPORTS_ENABLED", "true").lower() != "false"
     if reports_enabled:
@@ -341,6 +357,13 @@ def init_scheduler():
         trigger=CronTrigger(hour=evening_h, minute=evening_m),
         id="evening_report",
         replace_existing=True,
+    )
+    _scheduler.add_job(
+        _run_follow_up_check,
+        trigger=IntervalTrigger(hours=1),
+        id="follow_up_check",
+        replace_existing=True,
+        misfire_grace_time=600,
     )
 
     _scheduler.start()

@@ -225,6 +225,7 @@ def start_discovery(req, db):
     """Create Conversation and send first message. Called on approve."""
     from models import Conversation, ConversationMessage, Lead
     from services.telegram_bot import _send
+    from services.sales_brain import log_event
 
     # Idempotent — don't create duplicate conversations
     existing = db.query(Conversation).filter(
@@ -241,6 +242,11 @@ def start_discovery(req, db):
         telegram_chat_id=req.telegram_chat_id,
         status="active" if req.telegram_chat_id else "waiting_client",
         extracted_requirements={"_last_asked": DISCOVERY_TOPICS[0]["key"]},
+        decision_stage="new",
+        deal_probability=10,
+        client_temperature="cold",
+        risk_level="medium",
+        urgency="low",
     )
     db.add(conv)
     db.flush()
@@ -252,6 +258,9 @@ def start_discovery(req, db):
         text=first_msg,
     ))
     db.commit()
+
+    log_event(conv.id, "lead_created",
+              f"Purchase request approved — discovery started", db)
 
     if req.telegram_chat_id:
         try:
@@ -266,6 +275,7 @@ def handle_client_message(conv, text: str, db, chat_id: str) -> None:
     """Route an incoming Telegram message through the discovery engine."""
     from models import ConversationMessage, ActionLog
     from services.telegram_bot import _send, _log
+    from services.sales_brain import run_analysis, log_event
 
     # Save the client's message
     db.add(ConversationMessage(
@@ -274,6 +284,12 @@ def handle_client_message(conv, text: str, db, chat_id: str) -> None:
         text=text,
     ))
     db.flush()
+
+    # Run Sales Brain analysis on every client message
+    try:
+        run_analysis(conv, text, db)
+    except Exception as e:
+        logger.warning(f"Sales Brain analysis error: {e}")
 
     msg_count = db.query(ConversationMessage).filter(
         ConversationMessage.conversation_id == conv.id,
@@ -312,9 +328,13 @@ def handle_client_message(conv, text: str, db, chat_id: str) -> None:
         conv.extracted_requirements = reqs
         conv.status = "ready_for_proposal"
         conv.summary = _build_summary(reqs)
+        conv.decision_stage = "qualified"
+        conv.requirements_completeness = 100
         _save_agent_msg(conv, _COMPLETION, db)
         db.commit()
         _send(chat_id, _COMPLETION)
+        log_event(conv.id, "requirements_complete",
+                  f"{len(reqs)} topics covered — ready for proposal", db)
         _generate_offer_draft(conv, reqs, db)
         _notify_ready(conv, db)
         _log(db, "Discovery Agent", f"Conv #{conv.id} ready_for_proposal — {len(reqs)} topics covered")
@@ -328,9 +348,13 @@ def handle_client_message(conv, text: str, db, chat_id: str) -> None:
         conv.extracted_requirements = reqs
         conv.status = "ready_for_proposal"
         conv.summary = _build_summary(reqs)
+        conv.decision_stage = "qualified"
+        conv.requirements_completeness = 100
         _save_agent_msg(conv, _COMPLETION, db)
         db.commit()
         _send(chat_id, _COMPLETION)
+        log_event(conv.id, "requirements_complete",
+                  f"{len(reqs)} topics covered — ready for proposal", db)
         _generate_offer_draft(conv, reqs, db)
         _notify_ready(conv, db)
         return
@@ -386,6 +410,7 @@ def _save_agent_msg(conv, text: str, db):
 
 def _generate_offer_draft(conv, reqs: dict, db):
     from models import Offer, PurchaseRequest
+    from services.sales_brain import log_event
     req = db.query(PurchaseRequest).filter(PurchaseRequest.id == conv.purchase_request_id).first()
     if not req:
         return None
@@ -420,6 +445,10 @@ def _generate_offer_draft(conv, reqs: dict, db):
         lead_id=conv.lead_id,
     )
     db.add(offer)
+    db.commit()
+    log_event(conv.id, "proposal_generated",
+              f"Draft KP created — offer #{offer.id} for {req.name}", db)
+    conv.decision_stage = "proposal"
     db.commit()
     return offer
 
