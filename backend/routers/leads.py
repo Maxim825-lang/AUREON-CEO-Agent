@@ -210,9 +210,15 @@ def get_pipeline_stats(db: Session = Depends(get_db)):
         if proposal_leads:
             next_action = f"Отправить КП для {proposal_leads[0].name}"
 
+    import os
+    real_leads_count = db.query(Lead).filter(Lead.is_demo != 1).count()
+    tg_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    telegram_connected = bool(tg_token and tg_token != "your_bot_token_here")
+
     return {
         "total_leads": total,
-        "real_leads": db.query(Lead).filter(Lead.is_demo != 1).count(),
+        "real_leads": real_leads_count,
+        "real_leads_count": real_leads_count,
         "active_leads": len(active),
         "contacted": len(contacted),
         "proposals_sent": len(proposals),
@@ -222,4 +228,5 @@ def get_pipeline_stats(db: Session = Depends(get_db)):
         "won_revenue": won_revenue,
         "conversion_rate": conversion,
         "next_best_action": next_action,
+        "telegram_connected": telegram_connected,
     }

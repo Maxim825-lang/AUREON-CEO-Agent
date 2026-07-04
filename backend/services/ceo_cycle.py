@@ -50,16 +50,18 @@ def run_ceo_cycle(db: Session) -> dict:
     selected_tasks = random.sample(DAILY_TASK_TEMPLATES, num_tasks)
 
     for title, agent, priority in selected_tasks:
-        task = Task(
-            title=title,
-            description=f"Задача создана CEO Agent во время автономного цикла. Фокус: {focus}",
-            agent=agent,
-            status="pending",
-            priority=priority,
-            tags=["auto", "ceo-cycle"],
-        )
-        db.add(task)
-        tasks_created += 1
+        exists = db.query(Task).filter(Task.title == title, Task.status == "pending").first()
+        if not exists:
+            task = Task(
+                title=title,
+                description=f"Задача создана CEO Agent во время автономного цикла. Фокус: {focus}",
+                agent=agent,
+                status="pending",
+                priority=priority,
+                tags=["auto", "ceo-cycle"],
+            )
+            db.add(task)
+            tasks_created += 1
 
     action3 = ActionLog(
         agent="CEO Agent",
@@ -161,6 +163,20 @@ def run_ceo_cycle(db: Session) -> dict:
     actions.append({"agent": "CEO Agent", "action": action8.action, "result": action8.result})
 
     db.commit()
+
+    # Prune action logs — keep newest 500 to prevent unbounded growth
+    total_logs = db.query(ActionLog).count()
+    if total_logs > 500:
+        cutoff_id = (
+            db.query(ActionLog.id)
+            .order_by(ActionLog.id.desc())
+            .offset(500)
+            .limit(1)
+            .scalar()
+        )
+        if cutoff_id:
+            db.query(ActionLog).filter(ActionLog.id <= cutoff_id).delete()
+            db.commit()
 
     result = {
         "status": "success",

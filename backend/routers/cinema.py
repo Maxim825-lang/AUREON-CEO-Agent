@@ -162,8 +162,7 @@ def get_history(limit: int = 20, db: Session = Depends(get_db)):
 
 @router.get("/moods")
 def get_moods():
-    return {
-        "moods": [
+    return [
             {"key": "discipline", "label": "Discipline", "emoji": "⚡"},
             {"key": "lonely_founder", "label": "Lonely Founder", "emoji": "🌙"},
             {"key": "dark_motivation", "label": "Dark Motivation", "emoji": "🔥"},
@@ -175,4 +174,3 @@ def get_moods():
             {"key": "pressure", "label": "Pressure", "emoji": "⏱"},
             {"key": "victory", "label": "Victory", "emoji": "🏆"},
         ]
-    }
