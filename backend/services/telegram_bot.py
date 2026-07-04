@@ -693,12 +693,122 @@ def _dispatch(update: dict, db) -> None:
         "/portfolio": lambda: _cmd_portfolio(chat_id, db),
         "/services": lambda: _cmd_services_bot(chat_id, db),
         "/help": lambda: _cmd_help(chat_id, db),
+        "/my_request": lambda: _cmd_my_request(chat_id, db),
+        "/cancel": lambda: _cmd_cancel_discovery(chat_id, db),
+        "/human": lambda: _cmd_human_request(chat_id, db),
     }
     handler = COMMANDS.get(cmd)
     if handler:
         handler()
+    elif cmd.startswith("/"):
+        _send(chat_id, "Не знаю такой команды. /help — список всех команд.", keyboard=_main_kb())
     else:
-        _send(chat_id, "Не понял команду. Используй /help для списка.", keyboard=_main_kb())
+        _handle_free_text(chat_id, text, db)
+
+
+def _handle_free_text(chat_id: str, text: str, db) -> None:
+    """Route free-text messages — discovery conversations or fallback."""
+    from models import Conversation
+    conv = db.query(Conversation).filter(
+        Conversation.telegram_chat_id == chat_id,
+        Conversation.status.in_(["active", "waiting_client"]),
+    ).first()
+    if conv:
+        if conv.ai_paused:
+            from models import ConversationMessage
+            db.add(ConversationMessage(conversation_id=conv.id, sender="client", text=text))
+            db.commit()
+            _send(chat_id, "Получено. Наш менеджер ответит вам в ближайшее время.")
+        else:
+            from services.discovery_agent import handle_client_message
+            handle_client_message(conv, text, db, chat_id)
+    else:
+        _send(chat_id, "Не понял. Используй /help — список всех команд.", keyboard=_main_kb())
+
+
+def _cmd_my_request(chat_id: str, db) -> None:
+    from models import Conversation, PurchaseRequest
+    conv = (
+        db.query(Conversation)
+        .filter(Conversation.telegram_chat_id == chat_id)
+        .order_by(Conversation.id.desc())
+        .first()
+    )
+    if not conv:
+        _send(chat_id, "У вас нет активных заявок. Подайте заявку через /order.", keyboard=_main_kb())
+        return
+    req = db.query(PurchaseRequest).filter(PurchaseRequest.id == conv.purchase_request_id).first()
+    labels = {
+        "active": "🔄 AI уточняет детали",
+        "waiting_client": "⏳ Ожидает вашего ответа",
+        "ready_for_proposal": "📋 Требования собраны — готовим КП",
+        "proposal_sent": "📨 КП отправлено",
+        "closed": "✅ Завершено",
+    }
+    status_label = labels.get(conv.status, conv.status)
+    lines = [
+        f"📋 <b>Статус заявки</b>\n",
+        f"Услуга: {req.service if req else '—'}",
+        f"Статус: {status_label}",
+    ]
+    if conv.needs_human:
+        lines.append("\n⚠️ Передано команде AUREON — ответим скоро.")
+    _send(chat_id, "\n".join(lines), keyboard=_main_kb())
+    _log(db, "/my_request", f"Request status sent to {chat_id}")
+
+
+def _cmd_cancel_discovery(chat_id: str, db) -> None:
+    from models import Conversation, ConversationMessage
+    conv = (
+        db.query(Conversation)
+        .filter(
+            Conversation.telegram_chat_id == chat_id,
+            Conversation.status.in_(["active", "waiting_client"]),
+        )
+        .first()
+    )
+    if not conv:
+        _send(chat_id, "Нет активного диалога для отмены.", keyboard=_main_kb())
+        return
+    conv.status = "closed"
+    db.add(ConversationMessage(conversation_id=conv.id, sender="client", text="/cancel"))
+    db.add(ConversationMessage(
+        conversation_id=conv.id,
+        sender="agent",
+        text="Диалог завершён по вашему запросу. Если понадобится — подайте новую заявку через /order.",
+    ))
+    db.commit()
+    _send(chat_id, "Диалог завершён. Если понадобится — /order для новой заявки.", keyboard=_main_kb())
+    _log(db, "/cancel", f"Discovery cancelled by client {chat_id}")
+
+
+def _cmd_human_request(chat_id: str, db) -> None:
+    from models import Conversation, ConversationMessage
+    conv = (
+        db.query(Conversation)
+        .filter(Conversation.telegram_chat_id == chat_id)
+        .order_by(Conversation.id.desc())
+        .first()
+    )
+    if conv and conv.status in ("active", "waiting_client"):
+        conv.needs_human = True
+        conv.ai_paused = True
+        db.add(ConversationMessage(conversation_id=conv.id, sender="client", text="/human"))
+        reply = (
+            "Понял, хотите поговорить с человеком. "
+            "Передаю ваш запрос команде AUREON — ответят в ближайшее время. 🙌"
+        )
+        db.add(ConversationMessage(conversation_id=conv.id, sender="agent", text=reply))
+        db.commit()
+        _send(chat_id, reply, keyboard=_main_kb())
+        try:
+            from services.discovery_agent import _notify_needs_human
+            _notify_needs_human(conv, db)
+        except Exception:
+            pass
+    else:
+        _send(chat_id, "По всем вопросам: @manager_aureon", keyboard=_main_kb())
+    _log(db, "/human", f"Human requested from {chat_id}")
 
 
 def _handle_callback(callback: dict, db) -> None:

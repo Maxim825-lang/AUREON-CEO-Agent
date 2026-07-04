@@ -240,3 +240,28 @@ class Testimonial(Base):
     status = Column(String(50), default="draft")
     source_request_id = Column(Integer)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+    id = Column(Integer, primary_key=True)
+    purchase_request_id = Column(Integer)
+    lead_id = Column(Integer)
+    telegram_chat_id = Column(String(100))
+    # active / waiting_client / ready_for_proposal / proposal_sent / closed
+    status = Column(String(50), default="active")
+    summary = Column(Text)
+    extracted_requirements = Column(JSON, default=dict)
+    needs_human = Column(Boolean, default=False)
+    ai_paused = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ConversationMessage(Base):
+    __tablename__ = "conversation_messages"
+    id = Column(Integer, primary_key=True)
+    conversation_id = Column(Integer, nullable=False)
+    sender = Column(String(20), nullable=False)  # client / agent / admin
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())

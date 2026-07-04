@@ -119,7 +119,7 @@ def list_purchase_requests(status: Optional[str] = None, db: Session = Depends(g
 @router.post("/purchase-requests/{req_id}/approve")
 def approve_request(req_id: int, db: Session = Depends(get_db)):
     from models import PurchaseRequest, Task
-    from services.telegram_bot import _send
+    from services.discovery_agent import start_discovery
     req = db.query(PurchaseRequest).filter(PurchaseRequest.id == req_id).first()
     if not req:
         raise HTTPException(404, "Not found")
@@ -127,50 +127,42 @@ def approve_request(req_id: int, db: Session = Depends(get_db)):
     db.add(ActionLog(
         agent="CEO Agent",
         action=f"Заявка #{req_id} одобрена",
-        result=f"Клиент: {req.name}, Услуга: {req.service}. Переход в стадию Discovery.",
+        result=f"Клиент: {req.name}, Услуга: {req.service}. Discovery запущен.",
         status="success",
     ))
-    # Assign task to Sales Agent
     existing = db.query(Task).filter(Task.title == f"Discovery: {req.name}").first()
     if not existing:
         db.add(Task(
             title=f"Discovery: {req.name}",
-            description=f"Уточнить детали проекта для {req.service}. Бюджет: {req.budget}. {req.project_description or ''}",
+            description=f"Уточнить детали для {req.service}. Бюджет: {req.budget}. {req.project_description or ''}",
             agent="Sales Agent",
             status="pending",
             priority="high",
             tags=["discovery", "miniapp"],
         ))
     db.commit()
-    # Notify client
-    if req.telegram_chat_id:
-        try:
-            _send(req.telegram_chat_id,
-                  f"✅ Ваша заявка одобрена!\n\n"
-                  f"Привет, {req.name}! Я AI-представитель AUREON.\n\n"
-                  f"Ваша заявка на <b>{req.service}</b> принята в работу.\n"
-                  f"Давай уточним детали проекта:\n\n"
-                  f"📌 Расскажи подробнее — что именно нужно автоматизировать?\n"
-                  f"📌 Есть ли уже готовый Telegram-канал/бот?\n"
-                  f"📌 Когда нужен запуск?\n\n"
-                  f"Напиши ответ здесь, мы свяжем тебя с командой AUREON.")
-        except Exception:
-            pass
-    # Memory update
+    # Start autonomous discovery conversation
+    conv = start_discovery(req, db)
+    no_chat = not req.telegram_chat_id
     try:
         from memory.service import create_entry
         create_entry(db, {
             "type": "long",
             "category": "client",
             "title": f"[Approved] {req.name} — {req.service}",
-            "content": f"Заявка одобрена. Статус: in_discovery.\nБюджет: {req.budget}\nДедлайн: {req.deadline}",
+            "content": f"Заявка одобрена. Discovery запущен. Conv #{conv.id}.\nБюджет: {req.budget}",
             "tags": ["approved", "discovery", req.service.lower().replace(" ", "-")],
             "source": "miniapp",
             "importance": 4,
         })
     except Exception:
         pass
-    return {"ok": True, "status": "in_discovery"}
+    return {
+        "ok": True,
+        "status": "in_discovery",
+        "conversation_id": conv.id,
+        "chat_available": not no_chat,
+    }
 
 
 @router.post("/purchase-requests/{req_id}/reject")

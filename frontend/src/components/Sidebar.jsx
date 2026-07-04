@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { path: '/tasks', icon: '◻', label: 'Tasks' },
   { path: '/leads', icon: '◑', label: 'Leads' },
   { path: '/sales', icon: '◧', label: 'Sales' },
+  { path: '/conversations', icon: '💬', label: 'Conversations' },
   { path: '/requests', icon: '◈', label: 'Requests' },
   { path: '/portfolio', icon: '◆', label: 'Portfolio' },
   { path: '/content', icon: '◈', label: 'Content' },

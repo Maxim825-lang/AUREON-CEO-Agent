@@ -20,6 +20,7 @@ import MiniApp from './pages/MiniApp.jsx'
 import Requests from './pages/Requests.jsx'
 import Portfolio from './pages/Portfolio.jsx'
 import AdminGuard from './components/AdminGuard.jsx'
+import Conversations from './pages/Conversations.jsx'
 
 const Layout = ({ children }) => (
   <div style={{
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/memory" element={<Layout><Memory /></Layout>} />
         <Route path="/cinema" element={<Layout><Cinema /></Layout>} />
         <Route path="/miniapp" element={<MiniApp />} />
+        <Route path="/conversations" element={<Layout><AdminGuard><Conversations /></AdminGuard></Layout>} />
         <Route path="/requests" element={<Layout><AdminGuard><Requests /></AdminGuard></Layout>} />
         <Route path="/portfolio" element={<Layout><AdminGuard><Portfolio /></AdminGuard></Layout>} />
       </Routes>
