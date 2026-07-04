@@ -191,3 +191,52 @@ class SalesSettings(Base):
     min_price = Column(Float, default=100.0)
     telegram_bot_token = Column(String(300), default="")
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class PurchaseRequest(Base):
+    __tablename__ = "purchase_requests"
+    id = Column(Integer, primary_key=True)
+    telegram_user_id = Column(String(100))
+    telegram_chat_id = Column(String(100))
+    username = Column(String(100))
+    name = Column(String(200))
+    service = Column(String(200))
+    budget = Column(String(100))
+    deadline = Column(String(100))
+    project_description = Column(Text)
+    contact = Column(String(200))
+    status = Column(String(50), default="new")
+    admin_notes = Column(Text)
+    lead_id = Column(Integer)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class PortfolioCase(Base):
+    __tablename__ = "portfolio_cases"
+    id = Column(Integer, primary_key=True)
+    title = Column(String(300))
+    client_name = Column(String(200))
+    service = Column(String(200))
+    problem = Column(Text)
+    solution = Column(Text)
+    result = Column(Text)
+    price = Column(Float)
+    duration = Column(String(100))
+    status = Column(String(50), default="draft")
+    source_lead_id = Column(Integer)
+    source_request_id = Column(Integer)
+    created_at = Column(DateTime, server_default=func.now())
+    published_at = Column(DateTime)
+
+
+class Testimonial(Base):
+    __tablename__ = "testimonials"
+    id = Column(Integer, primary_key=True)
+    client_name = Column(String(200))
+    text = Column(Text)
+    rating = Column(Integer, default=5)
+    service = Column(String(200))
+    status = Column(String(50), default="draft")
+    source_request_id = Column(Integer)
+    created_at = Column(DateTime, server_default=func.now())

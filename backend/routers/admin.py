@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends
+import os
+from datetime import datetime
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Lead, Offer, ContentPost, ActionLog
@@ -23,14 +26,14 @@ FAKE_ACTION_RESULTS = [
 ]
 
 
+# ── Demo data cleanup ─────────────────────────────────────────────────────────
+
 @router.post("/clear-demo-data")
 def clear_demo_data(db: Session = Depends(get_db)):
-    # Delete by is_demo flag
     deleted_leads = db.query(Lead).filter(Lead.is_demo == 1).delete()
     deleted_offers = db.query(Offer).filter(Offer.is_demo == 1).delete()
     deleted_posts = db.query(ContentPost).filter(ContentPost.is_demo == 1).delete()
 
-    # Delete by known fake names (even if is_demo=0)
     for name in FAKE_LEAD_NAMES:
         n = db.query(Lead).filter(Lead.name == name).delete()
         deleted_leads += n
@@ -39,7 +42,6 @@ def clear_demo_data(db: Session = Depends(get_db)):
         n = db.query(Offer).filter(Offer.client == name).delete()
         deleted_offers += n
 
-    # Delete fake seeded action logs
     deleted_actions = 0
     for fake_result in FAKE_ACTION_RESULTS:
         n = db.query(ActionLog).filter(ActionLog.result == fake_result).delete()
@@ -74,3 +76,346 @@ def demo_data_count(db: Session = Depends(get_db)):
         "real_leads": db.query(Lead).filter(Lead.is_demo != 1).filter(Lead.name.notin_(FAKE_LEAD_NAMES)).count(),
         "real_offers": db.query(Offer).filter(Offer.is_demo != 1).filter(Offer.client.notin_(["SkillUp School", "LaunchPad Startup"])).count(),
     }
+
+
+# ── Purchase Requests ─────────────────────────────────────────────────────────
+
+def _serialize_request(r) -> dict:
+    return {
+        "id": r.id,
+        "name": r.name,
+        "username": r.username,
+        "telegram_chat_id": r.telegram_chat_id,
+        "service": r.service,
+        "budget": r.budget,
+        "deadline": r.deadline,
+        "project_description": r.project_description,
+        "contact": r.contact,
+        "status": r.status,
+        "admin_notes": r.admin_notes,
+        "lead_id": r.lead_id,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+        "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+    }
+
+
+@router.get("/purchase-requests")
+def list_purchase_requests(status: Optional[str] = None, db: Session = Depends(get_db)):
+    from models import PurchaseRequest
+    q = db.query(PurchaseRequest)
+    if status:
+        q = q.filter(PurchaseRequest.status == status)
+    items = q.order_by(PurchaseRequest.id.desc()).all()
+    return [_serialize_request(r) for r in items]
+
+
+@router.post("/purchase-requests/{req_id}/approve")
+def approve_request(req_id: int, db: Session = Depends(get_db)):
+    from models import PurchaseRequest, Task
+    from services.telegram_bot import _send
+    req = db.query(PurchaseRequest).filter(PurchaseRequest.id == req_id).first()
+    if not req:
+        raise HTTPException(404, "Not found")
+    req.status = "in_discovery"
+    db.add(ActionLog(
+        agent="CEO Agent",
+        action=f"Заявка #{req_id} одобрена",
+        result=f"Клиент: {req.name}, Услуга: {req.service}. Переход в стадию Discovery.",
+        status="success",
+    ))
+    # Assign task to Sales Agent
+    existing = db.query(Task).filter(Task.title == f"Discovery: {req.name}").first()
+    if not existing:
+        db.add(Task(
+            title=f"Discovery: {req.name}",
+            description=f"Уточнить детали проекта для {req.service}. Бюджет: {req.budget}. {req.project_description or ''}",
+            agent="Sales Agent",
+            status="pending",
+            priority="high",
+            tags=["discovery", "miniapp"],
+        ))
+    db.commit()
+    # Notify client
+    if req.telegram_chat_id:
+        try:
+            _send(req.telegram_chat_id,
+                  f"✅ Ваша заявка одобрена!\n\n"
+                  f"Привет, {req.name}! Я AI-представитель AUREON.\n\n"
+                  f"Ваша заявка на <b>{req.service}</b> принята в работу.\n"
+                  f"Давай уточним детали проекта:\n\n"
+                  f"📌 Расскажи подробнее — что именно нужно автоматизировать?\n"
+                  f"📌 Есть ли уже готовый Telegram-канал/бот?\n"
+                  f"📌 Когда нужен запуск?\n\n"
+                  f"Напиши ответ здесь, мы свяжем тебя с командой AUREON.")
+        except Exception:
+            pass
+    # Memory update
+    try:
+        from memory.service import create_entry
+        create_entry(db, {
+            "type": "long",
+            "category": "client",
+            "title": f"[Approved] {req.name} — {req.service}",
+            "content": f"Заявка одобрена. Статус: in_discovery.\nБюджет: {req.budget}\nДедлайн: {req.deadline}",
+            "tags": ["approved", "discovery", req.service.lower().replace(" ", "-")],
+            "source": "miniapp",
+            "importance": 4,
+        })
+    except Exception:
+        pass
+    return {"ok": True, "status": "in_discovery"}
+
+
+@router.post("/purchase-requests/{req_id}/reject")
+def reject_request(req_id: int, db: Session = Depends(get_db)):
+    from models import PurchaseRequest
+    from services.telegram_bot import _send
+    req = db.query(PurchaseRequest).filter(PurchaseRequest.id == req_id).first()
+    if not req:
+        raise HTTPException(404, "Not found")
+    req.status = "rejected"
+    db.add(ActionLog(
+        agent="CEO Agent",
+        action=f"Заявка #{req_id} отклонена",
+        result=f"Клиент: {req.name}",
+        status="success",
+    ))
+    db.commit()
+    if req.telegram_chat_id:
+        try:
+            _send(req.telegram_chat_id,
+                  f"Привет, {req.name}.\n\nК сожалению, на данный момент мы не можем взяться за ваш проект.\n"
+                  f"Если ситуация изменится — пишите!")
+        except Exception:
+            pass
+    return {"ok": True, "status": "rejected"}
+
+
+@router.post("/purchase-requests/{req_id}/mark-won")
+def mark_won(req_id: int, db: Session = Depends(get_db)):
+    from models import PurchaseRequest, StrategyState
+    req = db.query(PurchaseRequest).filter(PurchaseRequest.id == req_id).first()
+    if not req:
+        raise HTTPException(404, "Not found")
+    req.status = "won"
+    db.add(ActionLog(
+        agent="CEO Agent",
+        action=f"Сделка закрыта: {req.name} — {req.service}",
+        result=f"Бюджет: {req.budget or '—'}. Lead #{req.lead_id}.",
+        status="success",
+    ))
+    # Update revenue
+    price = _parse_budget_float(req.budget)
+    if price:
+        strategy = db.query(StrategyState).first()
+        if strategy:
+            strategy.revenue_current = (strategy.revenue_current or 0) + price
+            from services.strategy_engine import calculate_progress
+            strategy.progress_percent = calculate_progress(
+                strategy.revenue_current, strategy.revenue_goal or 100000, 0, 1
+            )
+    # Update linked lead
+    if req.lead_id:
+        from models import Lead
+        lead = db.query(Lead).filter(Lead.id == req.lead_id).first()
+        if lead:
+            lead.status = "closed_won"
+    db.commit()
+    # Memory
+    try:
+        from memory.service import create_entry
+        create_entry(db, {
+            "type": "experience",
+            "category": "sales",
+            "title": f"[Won] {req.name} — {req.service}",
+            "content": f"Сделка закрыта. Бюджет: {req.budget}. Дедлайн: {req.deadline}.\nОписание: {req.project_description or ''}",
+            "tags": ["won", "deal", req.service.lower().replace(" ", "-")],
+            "source": "miniapp",
+            "importance": 5,
+        })
+    except Exception:
+        pass
+    return {"ok": True, "status": "won", "revenue_added": price}
+
+
+@router.post("/purchase-requests/{req_id}/generate-portfolio-case")
+def generate_portfolio_case_endpoint(req_id: int, db: Session = Depends(get_db)):
+    from models import PurchaseRequest, PortfolioCase
+    from services.portfolio_generator import generate_portfolio_case
+    req = db.query(PurchaseRequest).filter(PurchaseRequest.id == req_id).first()
+    if not req:
+        raise HTTPException(404, "Not found")
+    data = generate_portfolio_case(req)
+    case = PortfolioCase(**data)
+    db.add(case)
+    db.commit()
+    db.refresh(case)
+    return {"ok": True, "case_id": case.id, "title": case.title, "status": case.status}
+
+
+# ── Portfolio cases ───────────────────────────────────────────────────────────
+
+@router.get("/portfolio")
+def list_portfolio(db: Session = Depends(get_db)):
+    from models import PortfolioCase
+    cases = db.query(PortfolioCase).order_by(PortfolioCase.id.desc()).all()
+    return [_serialize_case(c) for c in cases]
+
+
+@router.put("/portfolio/{case_id}")
+def update_case(case_id: int, data: dict, db: Session = Depends(get_db)):
+    from models import PortfolioCase
+    case = db.query(PortfolioCase).filter(PortfolioCase.id == case_id).first()
+    if not case:
+        raise HTTPException(404, "Not found")
+    for k, v in data.items():
+        if hasattr(case, k) and k not in ("id", "created_at"):
+            setattr(case, k, v)
+    db.commit()
+    return _serialize_case(case)
+
+
+@router.post("/portfolio/{case_id}/publish")
+def publish_case(case_id: int, db: Session = Depends(get_db)):
+    from models import PortfolioCase
+    case = db.query(PortfolioCase).filter(PortfolioCase.id == case_id).first()
+    if not case:
+        raise HTTPException(404, "Not found")
+    case.status = "published"
+    case.published_at = datetime.utcnow()
+    db.add(ActionLog(
+        agent="CEO Agent",
+        action=f"Кейс опубликован: {case.title}",
+        result="Кейс доступен в Mini App",
+        status="success",
+    ))
+    db.commit()
+    # Knowledge memory
+    try:
+        from memory.service import create_entry
+        create_entry(db, {
+            "type": "knowledge",
+            "category": "portfolio",
+            "title": f"Кейс: {case.title}",
+            "content": f"Клиент: {case.client_name}\nУслуга: {case.service}\nПроблема: {case.problem}\nРешение: {case.solution}\nРезультат: {case.result}",
+            "tags": ["portfolio", "case", case.service.lower().replace(" ", "-") if case.service else ""],
+            "source": "portfolio",
+            "importance": 4,
+        })
+    except Exception:
+        pass
+    return {"ok": True, "status": "published"}
+
+
+@router.post("/portfolio/{case_id}/unpublish")
+def unpublish_case(case_id: int, db: Session = Depends(get_db)):
+    from models import PortfolioCase
+    case = db.query(PortfolioCase).filter(PortfolioCase.id == case_id).first()
+    if not case:
+        raise HTTPException(404, "Not found")
+    case.status = "draft"
+    db.commit()
+    return {"ok": True, "status": "draft"}
+
+
+def _serialize_case(c) -> dict:
+    return {
+        "id": c.id,
+        "title": c.title,
+        "client_name": c.client_name,
+        "service": c.service,
+        "problem": c.problem,
+        "solution": c.solution,
+        "result": c.result,
+        "price": c.price,
+        "duration": c.duration,
+        "status": c.status,
+        "source_lead_id": c.source_lead_id,
+        "source_request_id": c.source_request_id,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+        "published_at": c.published_at.isoformat() if c.published_at else None,
+    }
+
+
+# ── Testimonials ──────────────────────────────────────────────────────────────
+
+@router.get("/testimonials")
+def list_testimonials(db: Session = Depends(get_db)):
+    from models import Testimonial
+    items = db.query(Testimonial).order_by(Testimonial.id.desc()).all()
+    return [_serialize_testimonial(t) for t in items]
+
+
+@router.post("/testimonials")
+def create_testimonial(data: dict, db: Session = Depends(get_db)):
+    from models import Testimonial
+    t = Testimonial(
+        client_name=data.get("client_name", ""),
+        text=data.get("text", ""),
+        rating=data.get("rating", 5),
+        service=data.get("service", ""),
+        status="draft",
+        source_request_id=data.get("source_request_id"),
+    )
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return _serialize_testimonial(t)
+
+
+@router.put("/testimonials/{t_id}")
+def update_testimonial(t_id: int, data: dict, db: Session = Depends(get_db)):
+    from models import Testimonial
+    t = db.query(Testimonial).filter(Testimonial.id == t_id).first()
+    if not t:
+        raise HTTPException(404, "Not found")
+    for k, v in data.items():
+        if hasattr(t, k) and k not in ("id", "created_at"):
+            setattr(t, k, v)
+    db.commit()
+    return _serialize_testimonial(t)
+
+
+@router.post("/testimonials/{t_id}/publish")
+def publish_testimonial(t_id: int, db: Session = Depends(get_db)):
+    from models import Testimonial
+    t = db.query(Testimonial).filter(Testimonial.id == t_id).first()
+    if not t:
+        raise HTTPException(404, "Not found")
+    t.status = "published"
+    db.commit()
+    return {"ok": True, "status": "published"}
+
+
+@router.post("/testimonials/{t_id}/unpublish")
+def unpublish_testimonial(t_id: int, db: Session = Depends(get_db)):
+    from models import Testimonial
+    t = db.query(Testimonial).filter(Testimonial.id == t_id).first()
+    if not t:
+        raise HTTPException(404, "Not found")
+    t.status = "draft"
+    db.commit()
+    return {"ok": True, "status": "draft"}
+
+
+def _serialize_testimonial(t) -> dict:
+    return {
+        "id": t.id,
+        "client_name": t.client_name,
+        "text": t.text,
+        "rating": t.rating,
+        "service": t.service,
+        "status": t.status,
+        "source_request_id": t.source_request_id,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+    }
+
+
+def _parse_budget_float(budget_str) -> float:
+    if not budget_str:
+        return 0.0
+    b = str(budget_str).replace("$", "").replace(",", "").replace(" ", "").split("-")[0]
+    try:
+        return float(b)
+    except ValueError:
+        return 0.0

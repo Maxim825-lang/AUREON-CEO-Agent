@@ -168,14 +168,39 @@ def _cmd_start(chat_id: str, from_user: dict, db):
 
     name = first_name or username or "CEO"
     greeting = "Добро пожаловать" if is_new else "С возвращением"
+
+    miniapp_url = os.getenv("MINIAPP_URL", "")
+
+    # Build keyboard with Mini App button if URL configured
+    if miniapp_url:
+        kb = {
+            "inline_keyboard": [
+                [{"text": "🌐 AUREON Mini App", "web_app": {"url": miniapp_url}}],
+                [
+                    {"text": "📝 Оставить заявку", "callback_data": "open_order"},
+                    {"text": "🛠 Услуги", "callback_data": "show_services"},
+                ],
+                [
+                    {"text": "💼 Портфолио", "callback_data": "show_portfolio"},
+                    {"text": "⚡ Run Cycle", "callback_data": "run_cycle"},
+                ],
+                [
+                    {"text": "📊 Отчёт", "callback_data": "daily_report"},
+                    {"text": "🔍 Лиды", "callback_data": "show_leads"},
+                ],
+            ]
+        }
+    else:
+        kb = _main_kb()
+
     text = (
         f"👋 {greeting}, {name}!\n\n"
-        f"Я <b>AI-представитель AUREON</b> — ваш CEO Agent в Telegram.\n\n"
-        f"✅ Ваш chat_id <code>{chat_id}</code> сохранён.\n"
-        f"Теперь система может отправлять вам уведомления.\n\n"
+        f"Я <b>AI-представитель AUREON</b> — AI-боты и автоматизация.\n\n"
+        f"✅ Ваш chat_id <code>{chat_id}</code> сохранён.\n\n"
         f"Выберите действие:"
+        + (f"\n\n🌐 Mini App: {miniapp_url}" if miniapp_url and "localhost" in miniapp_url else "")
     )
-    _send(chat_id, text, keyboard=_main_kb())
+    _send(chat_id, text, keyboard=kb)
     _log(db, "/start", f"@{username} ({first_name}) {'зарегистрирован' if is_new else 'обновлён'}, chat_id: {chat_id}")
 
 
@@ -421,6 +446,75 @@ def _cmd_reports_toggle(chat_id: str, enabled: bool, db):
     _log(db, f"/reports_{'on' if enabled else 'off'}", f"CEO Reports {status} из chat {chat_id}")
 
 
+def _cmd_app(chat_id: str, db):
+    miniapp_url = os.getenv("MINIAPP_URL", "")
+    if miniapp_url:
+        if "localhost" in miniapp_url or "127.0.0.1" in miniapp_url:
+            _send(chat_id,
+                  f"🌐 <b>AUREON Mini App</b>\n\nЛокальная разработка — откройте по ссылке:\n{miniapp_url}\n\n"
+                  f"В продакшене будет кнопка прямо здесь.")
+        else:
+            kb = {"inline_keyboard": [[{"text": "🌐 Открыть AUREON Mini App", "web_app": {"url": miniapp_url}}]]}
+            _send(chat_id, "🌐 <b>AUREON Mini App</b>\n\nНажмите кнопку:", keyboard=kb)
+    else:
+        _send(chat_id, "❌ Mini App URL не настроен. Добавьте MINIAPP_URL в .env")
+    _log(db, "/app", f"Mini App запрошен из chat {chat_id}")
+
+
+def _cmd_order(chat_id: str, db):
+    miniapp_url = os.getenv("MINIAPP_URL", "")
+    order_url = miniapp_url + "#order" if miniapp_url else ""
+    if order_url and "localhost" not in order_url:
+        kb = {"inline_keyboard": [[{"text": "📝 Оставить заявку", "web_app": {"url": order_url}}]]}
+        _send(chat_id, "📝 <b>Оставить заявку</b>\n\nНажмите кнопку:", keyboard=kb)
+    else:
+        _send(chat_id,
+              f"📝 <b>Оставить заявку на AI-бот AUREON</b>\n\n"
+              f"Услуги:\n"
+              f"• AI Telegram Bot от $300\n"
+              f"• AI Content System от $500\n"
+              f"• Landing Page + AI от $700\n"
+              f"• Business Automation от $1000\n"
+              f"• AUREON Mini HQ от $1500\n\n"
+              + (f"Форма заявки: {miniapp_url}#order" if miniapp_url else "Напишите нам: @manager_aureon"))
+    _log(db, "/order", f"Order из chat {chat_id}")
+
+
+def _cmd_portfolio(chat_id: str, db):
+    from models import PortfolioCase
+    cases = db.query(PortfolioCase).filter(PortfolioCase.status == "published").order_by(PortfolioCase.id.desc()).limit(3).all()
+    if not cases:
+        _send(chat_id, "💼 <b>Портфолио AUREON</b>\n\nПортфолио скоро появится — мы работаем над первыми проектами.", keyboard=_main_kb())
+    else:
+        lines = ["💼 <b>Портфолио AUREON</b>\n"]
+        for c in cases:
+            price_str = f" — ${c.price:,.0f}" if c.price else ""
+            lines.append(f"✅ <b>{c.title}</b>{price_str}")
+            lines.append(f"   {(c.result or '')[:100]}")
+            lines.append("")
+        _send(chat_id, "\n".join(lines), keyboard=_main_kb())
+    _log(db, "/portfolio", f"Portfolio из chat {chat_id}")
+
+
+def _cmd_services_bot(chat_id: str, db):
+    text = (
+        "🛠 <b>Услуги AUREON</b>\n\n"
+        "🤖 <b>AI Telegram Bot</b> — от $300\n"
+        "   Автоответы, лиды, CRM интеграция\n\n"
+        "📢 <b>AI Content System</b> — от $500\n"
+        "   Авто-посты в вашем стиле\n\n"
+        "🌐 <b>Landing Page + AI Chat</b> — от $700\n"
+        "   Конвертирующий сайт с AI\n\n"
+        "⚙️ <b>Business Automation</b> — от $1000\n"
+        "   Комплексная автоматизация\n\n"
+        "👑 <b>AUREON Mini HQ</b> — от $1500\n"
+        "   Полная AI-система для бизнеса\n\n"
+        "📝 Оставить заявку: /order"
+    )
+    _send(chat_id, text, keyboard=_main_kb())
+    _log(db, "/services", f"Services из chat {chat_id}")
+
+
 def _cmd_help(chat_id: str, db):
     text = (
         "<b>AUREON CEO Agent — Команды</b>\n\n"
@@ -437,6 +531,10 @@ def _cmd_help(chat_id: str, db):
         "/evening — Вечерний отчёт сейчас\n"
         "/reports_on — Включить плановые отчёты\n"
         "/reports_off — Выключить плановые отчёты\n"
+        "/app — Открыть Mini App\n"
+        "/order — Оставить заявку\n"
+        "/services — Услуги AUREON\n"
+        "/portfolio — Портфолио\n"
         "/help — Эта справка\n\n"
         "<i>Я AI-представитель AUREON. Не выдаю себя за Максима.</i>"
     )
@@ -590,6 +688,10 @@ def _dispatch(update: dict, db) -> None:
         "/evening": lambda: _cmd_evening_report(chat_id, db),
         "/reports_on": lambda: _cmd_reports_toggle(chat_id, True, db),
         "/reports_off": lambda: _cmd_reports_toggle(chat_id, False, db),
+        "/app": lambda: _cmd_app(chat_id, db),
+        "/order": lambda: _cmd_order(chat_id, db),
+        "/portfolio": lambda: _cmd_portfolio(chat_id, db),
+        "/services": lambda: _cmd_services_bot(chat_id, db),
         "/help": lambda: _cmd_help(chat_id, db),
     }
     handler = COMMANDS.get(cmd)
@@ -631,6 +733,12 @@ def _handle_callback(callback: dict, db) -> None:
         _cmd_report(chat_id, db)
     elif data == "next_action":
         _cmd_next(chat_id, db)
+    elif data == "open_order":
+        _cmd_order(chat_id, db)
+    elif data == "show_services":
+        _cmd_services_bot(chat_id, db)
+    elif data == "show_portfolio":
+        _cmd_portfolio(chat_id, db)
     elif data == "menu":
         _send(chat_id, "Выберите действие:", keyboard=_main_kb())
     elif data.startswith("pub_"):
