@@ -1,17 +1,5 @@
 import React, { useEffect, useState } from 'react'
-
-const BASE = import.meta.env.VITE_API_URL || ''
-
-async function api(method, path, body) {
-  const r = await fetch(`${BASE}${path}`, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  const d = await r.json()
-  if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`)
-  return d
-}
+import { adminApi as api } from '../utils/adminApi.js'
 
 function CaseCard({ c, onRefresh }) {
   const [editing, setEditing] = useState(false)

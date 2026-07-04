@@ -1,12 +1,19 @@
 import os
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Lead, Offer, ContentPost, ActionLog
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+def require_admin(x_admin_secret: str = Header(default="")):
+    expected = os.getenv("ADMIN_SECRET", "change_me")
+    if not x_admin_secret or x_admin_secret != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
 FAKE_LEAD_NAMES = [
     "Telegram Business Channel",

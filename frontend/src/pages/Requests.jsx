@@ -1,17 +1,5 @@
 import React, { useEffect, useState } from 'react'
-
-const BASE = import.meta.env.VITE_API_URL || ''
-
-async function api(method, path, body) {
-  const r = await fetch(`${BASE}${path}`, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  const d = await r.json()
-  if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`)
-  return d
-}
+import { adminApi as api } from '../utils/adminApi.js'
 
 const STATUS_META = {
   new: { label: 'New', color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
