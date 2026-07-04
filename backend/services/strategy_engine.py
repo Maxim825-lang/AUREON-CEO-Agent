@@ -23,21 +23,8 @@ def calculate_progress(revenue_current: float, revenue_goal: float, tasks_done: 
 
 DEFAULT_STRATEGY = {
     "main_goal": "Выйти на мировую арену с AUREON на WAIC 2027 — представить AI-агентство как лидера автоматизации",
-    "weekly_goals": [
-        "Запустить MVP CEO Agent и показать первые результаты",
-        "Получить первый оплаченный проект",
-        "Опубликовать 5 постов в Telegram-канале",
-        "Провести 3 демо-звонка с потенциальными клиентами",
-        "Настроить базовую CRM-систему",
-    ],
-    "monthly_goals": [
-        "Заработать первые $3,000",
-        "Набрать 500 подписчиков в Telegram",
-        "Подписать 3 клиента на ongoing AI-обслуживание",
-        "Опубликовать кейс первого успешного проекта",
-        "Запустить полноценный сайт AUREON",
-        "Протестировать AI Content System на реальном клиенте",
-    ],
+    "weekly_goals": [],
+    "monthly_goals": [],
     "risks": [
         {
             "risk": "Нет первого клиента",
@@ -133,7 +120,7 @@ DEFAULT_STRATEGY = {
             ],
         },
     ],
-    "progress_percent": 5.0,
+    "progress_percent": 0.0,
     "revenue_goal": 100000,
     "revenue_current": 0,
 }

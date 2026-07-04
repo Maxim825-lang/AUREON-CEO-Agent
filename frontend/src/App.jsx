@@ -14,6 +14,8 @@ import Settings from './pages/Settings.jsx'
 import Automation from './pages/Automation.jsx'
 import Sales from './pages/Sales.jsx'
 import TelegramBot from './pages/TelegramBot.jsx'
+import Memory from './pages/Memory.jsx'
+import Cinema from './pages/Cinema.jsx'
 
 const Layout = ({ children }) => (
   <div style={{
@@ -53,6 +55,8 @@ export default function App() {
         <Route path="/automation" element={<Layout><Automation /></Layout>} />
         <Route path="/sales" element={<Layout><Sales /></Layout>} />
         <Route path="/telegram-bot" element={<Layout><TelegramBot /></Layout>} />
+        <Route path="/memory" element={<Layout><Memory /></Layout>} />
+        <Route path="/cinema" element={<Layout><Cinema /></Layout>} />
       </Routes>
     </BrowserRouter>
   )

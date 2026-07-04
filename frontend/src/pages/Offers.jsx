@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import { getOffers, generateOffer } from '../api/client.js'
-import { MOCK_OFFERS } from '../api/mockData.js'
 import OfferCard from '../components/OfferCard.jsx'
 import Button from '../components/Button.jsx'
 
@@ -12,7 +11,7 @@ export default function Offers() {
   const [form, setForm] = useState({ client: '', service: 'AI Telegram Bot', price: '' })
   const [generating, setGenerating] = useState(false)
 
-  const load = () => getOffers().then(setOffers).catch(() => setOffers(MOCK_OFFERS))
+  const load = () => getOffers().then(setOffers).catch(() => setOffers([]))
   useEffect(() => { load() }, [])
 
   const generate = async (e) => {

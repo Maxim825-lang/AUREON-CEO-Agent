@@ -40,7 +40,7 @@ export default function Settings() {
   }, [])
 
   const handleClearDemo = async () => {
-    if (!window.confirm('Удалить все demo/mock лиды, офферы и посты? Настройки и логи не затронуты.')) return
+    if (!window.confirm('Удалить все demo/mock данн��е?\n\nБудут удалены:\n• Лиды с именами SkillUp School, LaunchPad Startup, MindGrow Blogger, LocalStyle Brand, Telegram Business Channel\n• Все записи с is_demo=true\n• Фейковые action logs и�� seed-данных\n\nНастройки и реальные данные не затронуты.')) return
     setClearingDemo(true)
     try {
       const r = await clearDemoData()
@@ -227,13 +227,13 @@ export default function Settings() {
             value={form.openai_api_key || ''}
             onChange={e => set('openai_api_key', e.target.value)}
             type="password"
-            placeholder="sk-... (leave empty to use mock generation)"
+            placeholder="sk-... (leave empty to use template generation)"
             style={{ ...inputStyle }}
             onFocus={e => e.target.style.borderColor = 'var(--border-gold)'}
             onBlur={e => e.target.style.borderColor = 'var(--border)'}
           />
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-            When provided, CEO Agent will use real GPT-4o for generation instead of mock data.
+            When provided, CEO Agent will use real GPT-4o. Without it, content is generated via templates (no AI).
           </div>
         </div>
       </div>

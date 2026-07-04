@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { getAgents } from '../api/client.js'
-import { MOCK_AGENTS } from '../api/mockData.js'
 import AgentCard from '../components/AgentCard.jsx'
 
 export default function Agents() {
   const [agents, setAgents] = useState([])
 
   useEffect(() => {
-    getAgents().then(setAgents).catch(() => setAgents(MOCK_AGENTS))
+    getAgents().then(setAgents).catch(() => setAgents([]))
   }, [])
 
   const active = agents.filter(a => a.status === 'active')

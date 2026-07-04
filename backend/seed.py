@@ -8,89 +8,89 @@ AGENTS_SEED = [
         "name": "CEO Agent",
         "role": "Стратегия и управление",
         "status": "active",
-        "current_task": "Анализ приоритетов и планирование недели",
-        "last_result": "Сформирован план на 7 дней. Определены 3 ключевых приоритета.",
+        "current_task": "Анализ приоритетов и планирование",
+        "last_result": None,
         "priority": 1,
         "icon": "👑",
         "color": "#D4AF37",
-        "tasks_completed": 12,
+        "tasks_completed": 0,
     },
     {
         "name": "Sales Agent",
         "role": "Клиенты и продажи",
         "status": "active",
         "current_task": "Поиск и квалификация потенциальных клиентов",
-        "last_result": "Найдено 5 лидов в нише Telegram-каналов. Отправлено 2 КП.",
+        "last_result": None,
         "priority": 2,
         "icon": "💼",
         "color": "#3B82F6",
-        "tasks_completed": 8,
+        "tasks_completed": 0,
     },
     {
         "name": "Marketing Agent",
         "role": "Контент и рост",
         "status": "active",
         "current_task": "Генерация постов для Telegram-канала",
-        "last_result": "Создано 3 поста. Охват последнего: ~200 просмотров.",
+        "last_result": None,
         "priority": 2,
         "icon": "📢",
         "color": "#8B5CF6",
-        "tasks_completed": 15,
+        "tasks_completed": 0,
     },
     {
         "name": "Product Agent",
         "role": "Развитие продукта",
         "status": "idle",
         "current_task": "Планирование CEO Agent v2",
-        "last_result": "Составлен список фич для следующего релиза.",
+        "last_result": None,
         "priority": 3,
         "icon": "🚀",
         "color": "#10B981",
-        "tasks_completed": 5,
+        "tasks_completed": 0,
     },
     {
         "name": "Research Agent",
         "role": "Рынок и конкуренты",
         "status": "active",
         "current_task": "Мониторинг AI-новостей и анализ конкурентов",
-        "last_result": "Обнаружен новый конкурент. Составлен сравнительный анализ.",
+        "last_result": None,
         "priority": 3,
         "icon": "🔍",
         "color": "#F59E0B",
-        "tasks_completed": 20,
+        "tasks_completed": 0,
     },
     {
         "name": "Finance Agent",
         "role": "Финансы и юнит-экономика",
         "status": "idle",
-        "current_task": "Расчёт юнит-экономики для AI-бота",
-        "last_result": "Маржинальность сервиса AI-бот: 72%. Точка безубыточности: 2 клиента/месяц.",
+        "current_task": "Расчёт юнит-экономики",
+        "last_result": None,
         "priority": 4,
         "icon": "💰",
         "color": "#EF4444",
-        "tasks_completed": 7,
+        "tasks_completed": 0,
     },
     {
         "name": "CTO Agent",
         "role": "Разработка и технологии",
         "status": "idle",
         "current_task": "Архитектура AI-системы для клиентов",
-        "last_result": "Выбран стек: FastAPI + LangChain + SQLite. Готово к масштабированию.",
+        "last_result": None,
         "priority": 4,
         "icon": "⚙️",
         "color": "#6B7280",
-        "tasks_completed": 9,
+        "tasks_completed": 0,
     },
     {
         "name": "Design Agent",
         "role": "Бренд и визуал",
         "status": "idle",
         "current_task": "Разработка визуального стиля AUREON",
-        "last_result": "Готова цветовая палитра. Логотип в процессе.",
+        "last_result": None,
         "priority": 5,
         "icon": "🎨",
         "color": "#EC4899",
-        "tasks_completed": 4,
+        "tasks_completed": 0,
     },
 ]
 
@@ -99,15 +99,15 @@ TASKS_SEED = [
         "title": "Запустить Telegram-канал AUREON",
         "description": "Создать канал, написать описание, опубликовать первый пост",
         "agent": "Marketing Agent",
-        "status": "completed",
+        "status": "pending",
         "priority": "high",
         "tags": ["маркетинг", "telegram"],
     },
     {
         "title": "Получить первого платящего клиента",
-        "description": "Провести outreach, провести 3 демо, подписать первый контракт",
+        "description": "Провести outreach, провести демо, подписать первый контракт",
         "agent": "Sales Agent",
-        "status": "in_progress",
+        "status": "pending",
         "priority": "high",
         "tags": ["продажи", "клиент"],
     },
@@ -115,7 +115,7 @@ TASKS_SEED = [
         "title": "Разработать AI-бот для демо",
         "description": "Создать демо AI-бот который можно показать клиентам",
         "agent": "CTO Agent",
-        "status": "in_progress",
+        "status": "pending",
         "priority": "high",
         "tags": ["разработка", "демо"],
     },
@@ -123,7 +123,7 @@ TASKS_SEED = [
         "title": "Написать 10 постов в Telegram",
         "description": "Подготовить контент-план и реализовать первые 10 постов",
         "agent": "Marketing Agent",
-        "status": "in_progress",
+        "status": "pending",
         "priority": "medium",
         "tags": ["контент", "telegram"],
     },
@@ -136,10 +136,10 @@ TASKS_SEED = [
         "tags": ["финансы", "продажи"],
     },
     {
-        "title": "Провести анализ 5 конкурентов",
+        "title": "Провести анализ конкурентов",
         "description": "Исследовать конкурентов, выявить слабые места, найти позиционирование",
         "agent": "Research Agent",
-        "status": "completed",
+        "status": "pending",
         "priority": "medium",
         "tags": ["исследование", "стратегия"],
     },
@@ -161,44 +161,6 @@ TASKS_SEED = [
     },
 ]
 
-ACTIONS_SEED = [
-    {
-        "agent": "CEO Agent",
-        "action": "Инициализация системы AUREON CEO Agent",
-        "result": "Система запущена. Все агенты активированы. База данных инициализирована.",
-        "status": "success",
-    },
-    {
-        "agent": "Research Agent",
-        "action": "Анализ AI-рынка в СНГ",
-        "result": "Рынок AI-автоматизации растёт на 35% г/г. Ниша малого бизнеса практически свободна.",
-        "status": "success",
-    },
-    {
-        "agent": "Sales Agent",
-        "action": "Поиск потенциальных клиентов в Telegram",
-        "result": "Найдено 5 потенциальных клиентов. Добавлены в CRM.",
-        "status": "success",
-    },
-    {
-        "agent": "Marketing Agent",
-        "action": "Генерация первого поста для Telegram",
-        "result": "Пост 'AUREON: AI-агентство нового поколения' создан. Готов к публикации.",
-        "status": "success",
-    },
-    {
-        "agent": "Finance Agent",
-        "action": "Расчёт юнит-экономики",
-        "result": "AI-бот: $1,200 чек, $340 себестоимость, маржа 71.7%. Точка безубыточности: 2 клиента.",
-        "status": "success",
-    },
-    {
-        "agent": "CEO Agent",
-        "action": "Определение стратегии до WAIC 2027",
-        "result": "Стратегия утверждена: 4 фазы, цель $100K выручки к Q2 2027.",
-        "status": "success",
-    },
-]
 
 def seed_database(db: Session):
     if db.query(Agent).count() > 0:
@@ -212,10 +174,6 @@ def seed_database(db: Session):
         task = Task(**task_data)
         db.add(task)
 
-    for action_data in ACTIONS_SEED:
-        log = ActionLog(**action_data)
-        db.add(log)
-
     strategy = StrategyState(**DEFAULT_STRATEGY)
     db.add(strategy)
 
@@ -223,4 +181,4 @@ def seed_database(db: Session):
     db.add(settings)
 
     db.commit()
-    print("Database seeded successfully (no demo leads/offers).")
+    print("Database seeded (agents, tasks, strategy, settings — no demo leads/offers/actions).")

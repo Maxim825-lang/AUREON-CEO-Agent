@@ -381,6 +381,46 @@ def _cmd_report(chat_id: str, db):
     _log(db, "/report", f"Отчёт из chat {chat_id}")
 
 
+def _cmd_ceo_report(chat_id: str, db):
+    """Send rich CEO report to the requesting chat_id."""
+    try:
+        from services.report_service import generate_ceo_report
+        text = generate_ceo_report(db, "CEO Report")
+        _send(chat_id, text)
+        _log(db, "/report", f"CEO Report отправлен в chat {chat_id}")
+    except Exception as e:
+        _send(chat_id, f"❌ Ошибка генерации отчёта: {e}")
+        _log(db, "/report", str(e), "error")
+
+
+def _cmd_morning_report(chat_id: str, db):
+    try:
+        from services.report_service import generate_ceo_report
+        text = generate_ceo_report(db, "Утренний отчёт")
+        _send(chat_id, text)
+        _log(db, "/morning", f"Утренний отчёт отправлен в chat {chat_id}")
+    except Exception as e:
+        _send(chat_id, f"❌ Ошибка: {e}")
+
+
+def _cmd_evening_report(chat_id: str, db):
+    try:
+        from services.report_service import generate_ceo_report
+        text = generate_ceo_report(db, "Вечерний отчёт")
+        _send(chat_id, text)
+        _log(db, "/evening", f"Вечерний отчёт отправлен в chat {chat_id}")
+    except Exception as e:
+        _send(chat_id, f"❌ Ошибка: {e}")
+
+
+def _cmd_reports_toggle(chat_id: str, enabled: bool, db):
+    from services.report_service import set_reports_enabled
+    set_reports_enabled(enabled)
+    status = "включены ✅" if enabled else "выключены ⏸"
+    _send(chat_id, f"CEO Reports {status}.\n\n/morning — отправить утренний отчёт\n/evening — отправить вечерний отчёт", keyboard=_main_kb())
+    _log(db, f"/reports_{'on' if enabled else 'off'}", f"CEO Reports {status} из chat {chat_id}")
+
+
 def _cmd_help(chat_id: str, db):
     text = (
         "<b>AUREON CEO Agent — Команды</b>\n\n"
@@ -392,7 +432,11 @@ def _cmd_help(chat_id: str, db):
         "/leads — Список лидов\n"
         "/sales — Sales Pipeline\n"
         "/next — Следующее денежное действие\n"
-        "/report — Отчёт за день\n"
+        "/report — Полный CEO-отчёт сейчас\n"
+        "/morning — Утренний отчёт сейчас\n"
+        "/evening — Вечерний отчёт сейчас\n"
+        "/reports_on — Включить плановые отчёты\n"
+        "/reports_off — Выключить плановые отчёты\n"
         "/help — Эта справка\n\n"
         "<i>Я AI-представитель AUREON. Не выдаю себя за Максима.</i>"
     )
@@ -541,7 +585,11 @@ def _dispatch(update: dict, db) -> None:
         "/leads": lambda: _cmd_leads(chat_id, db),
         "/sales": lambda: _cmd_sales(chat_id, db),
         "/next": lambda: _cmd_next(chat_id, db),
-        "/report": lambda: _cmd_report(chat_id, db),
+        "/report": lambda: _cmd_ceo_report(chat_id, db),
+        "/morning": lambda: _cmd_morning_report(chat_id, db),
+        "/evening": lambda: _cmd_evening_report(chat_id, db),
+        "/reports_on": lambda: _cmd_reports_toggle(chat_id, True, db),
+        "/reports_off": lambda: _cmd_reports_toggle(chat_id, False, db),
         "/help": lambda: _cmd_help(chat_id, db),
     }
     handler = COMMANDS.get(cmd)

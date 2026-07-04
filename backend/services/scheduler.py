@@ -265,11 +265,37 @@ def _run_sales_auto_job():
 
 
 def _run_morning_report():
-    _send_report("Утренний отчёт")
+    reports_enabled = os.getenv("CEO_REPORTS_ENABLED", "true").lower() != "false"
+    if reports_enabled:
+        from database import SessionLocal
+        from services.report_service import send_ceo_report_to_founder
+        db = SessionLocal()
+        try:
+            result = send_ceo_report_to_founder(db, "Утренний отчёт")
+            _log("Утренний отчёт CEO", result.get("message", "Отправлен"))
+        except Exception as e:
+            _log("Утренний отчёт CEO", str(e), "error")
+        finally:
+            db.close()
+    else:
+        _send_report("Утренний отчёт")
 
 
 def _run_evening_report():
-    _send_report("Вечерний отчёт")
+    reports_enabled = os.getenv("CEO_REPORTS_ENABLED", "true").lower() != "false"
+    if reports_enabled:
+        from database import SessionLocal
+        from services.report_service import send_ceo_report_to_founder
+        db = SessionLocal()
+        try:
+            result = send_ceo_report_to_founder(db, "Вечерний отчёт")
+            _log("Вечерний отчёт CEO", result.get("message", "Отправлен"))
+        except Exception as e:
+            _log("Вечерний отчёт CEO", str(e), "error")
+        finally:
+            db.close()
+    else:
+        _send_report("Вечерний отчёт")
 
 
 def init_scheduler():

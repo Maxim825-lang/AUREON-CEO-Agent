@@ -89,16 +89,14 @@ export default function AgentCard({ agent }) {
       </div>
 
       {/* Last result */}
-      {agent.last_result && (
-        <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '10px' }}>
-          {agent.last_result}
-        </div>
-      )}
+      <div style={{ fontSize: '11px', color: agent.last_result ? 'var(--text-muted)' : 'rgba(255,255,255,0.2)', lineHeight: 1.4, marginBottom: '10px', fontStyle: agent.last_result ? 'normal' : 'italic' }}>
+        {agent.last_result || 'No real activity yet'}
+      </div>
 
       {/* Footer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
         <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-          Completed: <span style={{ color: agent.color, fontWeight: 600 }}>{agent.tasks_completed}</span>
+          Completed: <span style={{ color: agent.tasks_completed > 0 ? agent.color : 'var(--text-muted)', fontWeight: 600 }}>{agent.tasks_completed}</span>
         </span>
         <div style={{
           width: '6px',

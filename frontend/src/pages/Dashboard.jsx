@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import { getState, getActions, getTasks, getAgents, getPipelineStats } from '../api/client.js'
-import { MOCK_STATE, MOCK_ACTIONS, MOCK_TASKS, MOCK_AGENTS } from '../api/mockData.js'
 import StatCard from '../components/StatCard.jsx'
 import ProgressBar from '../components/ProgressBar.jsx'
 import ActivityFeed from '../components/ActivityFeed.jsx'
@@ -46,10 +45,28 @@ export default function Dashboard() {
       setOffline(false)
       getPipelineStats().then(setPipeline).catch(() => {})
     } catch {
-      setState(MOCK_STATE)
-      setActions(MOCK_ACTIONS)
-      setTasks(MOCK_TASKS)
-      setAgents(MOCK_AGENTS)
+      const daysLeft = Math.floor((new Date('2027-07-01') - new Date()) / (1000 * 60 * 60 * 24))
+      setState({
+        project_name: 'AUREON',
+        founder_name: '',
+        status: 'OFFLINE',
+        focus_of_day: null,
+        risk_level: null,
+        days_until_waic: daysLeft,
+        active_agents: 0,
+        total_agents: 0,
+        pending_tasks: 0,
+        completed_tasks: 0,
+        total_tasks: 0,
+        progress_percent: 0,
+        revenue_current: 0,
+        revenue_goal: 0,
+        autonomy_level: 1,
+        waic_date: '2027-07-01',
+      })
+      setActions([])
+      setTasks([])
+      setAgents([])
       setOffline(true)
     }
   }
@@ -135,7 +152,7 @@ export default function Dashboard() {
               fontFamily: 'Space Grotesk',
               marginBottom: '4px',
             }}>
-              Доброе утро, {state.founder_name} 👋
+              {state.founder_name ? `Доброе утро, ${state.founder_name} 👋` : 'AUREON CEO Agent'}
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: 500 }}>
               {state.focus_of_day}
@@ -156,7 +173,9 @@ export default function Dashboard() {
             color="var(--gold)"
             height={5}
             showLabel
-            label={`AUREON Progress · $${state.revenue_current.toLocaleString()} / $${state.revenue_goal.toLocaleString()}`}
+            label={state.revenue_goal > 0
+              ? `AUREON Progress · $${state.revenue_current.toLocaleString()} / $${state.revenue_goal.toLocaleString()}`
+              : 'AUREON Progress · No real revenue yet'}
           />
         </div>
       </div>
@@ -226,7 +245,7 @@ export default function Dashboard() {
         <StatCard label="Tasks Today" value={state.pending_tasks} sub="pending" icon="◻" />
         <StatCard label="Completed" value={state.completed_tasks} sub="total done" icon="✓" color="var(--green)" />
         <StatCard label="Risk Level" value={state.risk_level} icon="◬" color={state.risk_level === 'HIGH' ? 'var(--red)' : state.risk_level === 'MEDIUM' ? 'var(--orange)' : 'var(--green)'} />
-        <StatCard label="Revenue" value={`$${state.revenue_current}`} sub={`goal: $${(state.revenue_goal/1000).toFixed(0)}K`} icon="💰" color="var(--gold)" glow />
+        <StatCard label="Revenue" value={`$${state.revenue_current}`} sub={state.revenue_goal > 0 ? `goal: $${(state.revenue_goal/1000).toFixed(0)}K` : 'No real sales yet'} icon="💰" color="var(--gold)" glow />
         <StatCard label="Progress" value={`${state.progress_percent}%`} icon="◬" color="var(--gold)" />
       </div>
 
@@ -289,6 +308,11 @@ export default function Dashboard() {
             <a href="/agents" style={{ fontSize: '11px', color: 'var(--gold)', textDecoration: 'none' }}>View all →</a>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {activeAgents.length === 0 && (
+              <div style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', padding: '16px' }}>
+                No active agents
+              </div>
+            )}
             {activeAgents.map((agent, i) => (
               <div key={agent.id || i} style={{
                 display: 'flex',

@@ -224,6 +224,28 @@ def stop_bot():
     return result
 
 
+# ── CEO Reports Endpoints ─────────────────────────────────────────────────────
+
+@router.get("/report-status")
+def report_status(db: Session = Depends(get_db)):
+    from services.report_service import get_report_status
+    return get_report_status(db)
+
+
+@router.post("/send-report")
+def send_report_now(db: Session = Depends(get_db)):
+    from services.report_service import send_ceo_report_to_founder
+    result = send_ceo_report_to_founder(db, "Manual")
+    return result
+
+
+@router.post("/reports-toggle")
+def toggle_reports(enabled: bool, db: Session = Depends(get_db)):
+    from services.report_service import set_reports_enabled
+    set_reports_enabled(enabled)
+    return {"ok": True, "enabled": enabled}
+
+
 class SetWebhookRequest(BaseModel):
     webhook_url: str
 

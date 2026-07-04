@@ -1,6 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { getBotStatus, getBotUsers, getBotActions, startBot, stopBot, setWebhook, testTelegram, publishLatestToTelegram, syncTelegramUpdates, syncSalesChatIds } from '../api/client.js'
 
+const API = import.meta.env.VITE_API_URL || ''
+async function apiFetch(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } }
+  if (body !== undefined) opts.body = JSON.stringify(body)
+  const r = await fetch(`${API}${path}`, opts)
+  if (!r.ok) { const d = await r.json().catch(() => null); throw new Error((typeof d?.detail === 'string' ? d.detail : null) || `HTTP ${r.status}`) }
+  return r.json()
+}
+
 function fmt(iso) {
   if (!iso) return '—'
   try { return new Date(iso).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) }
@@ -373,6 +382,9 @@ export default function TelegramBot() {
         )}
       </div>
 
+      {/* CEO Reports */}
+      <CeoReportsCard flash={flash} setMsg={setMsg} />
+
       {/* Webhook Setup */}
       <div style={{ ...card }}>
         <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
@@ -406,6 +418,7 @@ export default function TelegramBot() {
         </div>
       </div>
 
+      {/* Bot Commands Reference — updated with report commands */}
       {/* Setup Instructions */}
       <div style={{ ...card, background: 'rgba(212,175,55,0.04)', borderColor: 'var(--border-gold)' }}>
         <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>
@@ -428,6 +441,102 @@ export default function TelegramBot() {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── CEO Reports Card ──────────────────────────────────────────────────────────
+
+function CeoReportsCard({ setMsg }) {
+  const [status, setStatus] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    try { setStatus(await apiFetch('GET', '/api/telegram/report-status')) } catch { }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const flash = (ok, text) => { setMsg({ ok, text }); setTimeout(() => setMsg(null), 5000) }
+
+  async function handleSendNow() {
+    setLoading(true)
+    try {
+      const r = await apiFetch('POST', '/api/telegram/send-report')
+      flash(r.ok, r.message)
+      await load()
+    } catch (e) { flash(false, e.message) } finally { setLoading(false) }
+  }
+
+  async function handleToggle(enabled) {
+    setLoading(true)
+    try {
+      await apiFetch('POST', `/api/telegram/reports-toggle?enabled=${enabled}`)
+      flash(true, enabled ? 'CEO Reports включены' : 'CEO Reports выключены')
+      await load()
+    } catch (e) { flash(false, e.message) } finally { setLoading(false) }
+  }
+
+  const enabled = status?.enabled ?? true
+
+  return (
+    <div style={{ ...card, marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+          CEO Reports
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span style={{
+            fontSize: 11, fontWeight: 600,
+            color: enabled ? 'var(--green)' : 'var(--text-muted)',
+            padding: '3px 8px', borderRadius: 10,
+            background: enabled ? 'var(--green-dim)' : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${enabled ? 'rgba(16,185,129,0.25)' : 'var(--border)'}`,
+          }}>
+            {enabled ? '● ACTIVE' : '● PAUSED'}
+          </span>
+          <button style={btnStyle(enabled ? 'red' : 'green')} onClick={() => handleToggle(!enabled)} disabled={loading}>
+            {enabled ? 'Reports Off' : 'Reports On'}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
+        {[
+          { label: 'Founder Chat ID', value: status?.founder_chat_id || '— не задан', color: status?.founder_chat_id ? 'var(--gold)' : 'var(--red)', small: true },
+          { label: 'Reports Sent', value: status?.reports_sent ?? '—' },
+          { label: 'Утренний', value: status?.morning_time || '09:00', color: 'var(--text-secondary)' },
+          { label: 'Вечерний', value: status?.evening_time || '21:00', color: 'var(--text-secondary)' },
+          { label: 'Последний отчёт', value: status?.last_report_at ? new Date(status.last_report_at).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : '—', color: 'var(--text-muted)', small: true },
+        ].map(({ label: l, value, color, small }) => (
+          <div key={l} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px 12px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: 4 }}>{l}</div>
+            <div style={{ fontSize: small ? '12px' : '16px', fontWeight: 700, color: color || 'var(--text-primary)', fontFamily: 'Space Grotesk', wordBreak: 'break-all' }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {status?.error && (
+        <div style={{ fontSize: '11px', color: 'var(--red)', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '6px 10px', marginBottom: 12 }}>
+          ⚠ {status.error}
+        </div>
+      )}
+
+      {!status?.founder_chat_id && (
+        <div style={{ fontSize: '11px', color: 'var(--gold)', background: 'rgba(212,175,55,0.06)', border: '1px solid var(--border-gold)', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>
+          💡 Чтобы получать отчёты: отправьте <b>/start</b> боту в Telegram — chat_id сохранится автоматически.
+          Или задайте <code>FOUNDER_TELEGRAM_CHAT_ID</code> в backend/.env
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button style={btnStyle('gold')} onClick={handleSendNow} disabled={loading}>
+          📊 Отправить отчёт сейчас
+        </button>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          Команды в боте: /report · /morning · /evening · /reports_on · /reports_off
+        </span>
       </div>
     </div>
   )

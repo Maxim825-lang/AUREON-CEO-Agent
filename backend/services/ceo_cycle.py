@@ -162,10 +162,18 @@ def run_ceo_cycle(db: Session) -> dict:
 
     db.commit()
 
-    return {
+    result = {
         "status": "success",
         "actions": actions,
         "summary": f"CEO-цикл завершён успешно. Создано {tasks_created} задач, {posts_generated} пост для Telegram. Агенты активны.",
         "tasks_created": tasks_created,
         "posts_generated": posts_generated,
     }
+
+    try:
+        from memory.service import record_cycle_memory
+        record_cycle_memory(db, result)
+    except Exception:
+        pass
+
+    return result

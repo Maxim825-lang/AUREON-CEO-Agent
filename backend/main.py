@@ -11,13 +11,15 @@ load_dotenv()
 
 from database import engine, get_db, Base
 import models
+import memory.models  # register MemoryEntry with Base before create_all
 from seed import seed_database
 from schemas import CycleResult
 from services.ceo_cycle import run_ceo_cycle
 from services.strategy_engine import days_until_waic, get_focus_of_day, get_risk_level
 from models import ActionLog, Task, Agent, Settings, StrategyState, TelegramUser
 
-from routers import agents, tasks, leads, content, offers, strategy, settings, telegram, automation, admin, sales
+from routers import agents, tasks, leads, content, offers, strategy, settings, telegram, automation, admin, sales, cinema
+from memory import router as memory_router
 from services import scheduler as sched
 from services import telegram_bot as tg_bot
 
@@ -51,17 +53,137 @@ def _migrate_add_columns():
 _migrate_add_columns()
 
 
+def _migrate_clean_demo_data():
+    """One-time idempotent cleanup of fake seeded data from existing databases."""
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        FAKE_AGENT_RESULTS = {
+            "CEO Agent": "Сформирован план на 7 дней. Определены 3 ключевых приоритета.",
+            "Sales Agent": "Найдено 5 лидов в нише Telegram-каналов. Отправлено 2 КП.",
+            "Marketing Agent": "Создано 3 поста. Охват последнего: ~200 просмотров.",
+            "Product Agent": "Составлен список фич для следующего релиза.",
+            "Research Agent": "Обнаружен новый конкурент. Составлен сравнительный анализ.",
+            "Finance Agent": "Маржинальность сервиса AI-бот: 72%. Точка безубыточности: 2 клиента/месяц.",
+            "CTO Agent": "Выбран стек: FastAPI + LangChain + SQLite. Готово к масштабированию.",
+            "Design Agent": "Готова цветовая палитра. Логотип в процессе.",
+            "Cinema Agent": "База кино-референсов загружена. Готов к подбору по 10 mood-категориям.",
+        }
+        for name, fake_result in FAKE_AGENT_RESULTS.items():
+            agent = db.query(Agent).filter(Agent.name == name).first()
+            if agent and agent.last_result == fake_result:
+                agent.last_result = None
+                agent.tasks_completed = 0
+
+        FAKE_ACTION_RESULTS = [
+            "Система запущена. Все агенты активированы. База данных инициализирована.",
+            "Рынок AI-автоматизации растёт на 35% г/г. Ниша малого бизнеса практически свободна.",
+            "Найдено 5 потенциальных клиентов. Добавлены в CRM.",
+            "Пост 'AUREON: AI-агентство нового поколения' создан. Готов к публикации.",
+            "AI-бот: $1,200 чек, $340 себестоимость, маржа 71.7%. Точка безубыточности: 2 клиента.",
+            "Стратегия утверждена: 4 фазы, цель $100K выручки к Q2 2027.",
+        ]
+        for fake_result in FAKE_ACTION_RESULTS:
+            db.query(ActionLog).filter(ActionLog.result == fake_result).delete()
+
+        FAKE_WEEKLY = [
+            "Запустить MVP CEO Agent и показать первые результаты",
+            "Получить первый оплаченный проект",
+            "Опубликовать 5 постов в Telegram-канале",
+            "Провести 3 демо-звонка с потенциальными клиентами",
+            "Настроить базовую CRM-систему",
+        ]
+        FAKE_MONTHLY = [
+            "Заработать первые $3,000",
+            "Набрать 500 подписчиков в Telegram",
+            "Подписать 3 клиента на ongoing AI-обслуживание",
+            "Опубликовать кейс первого успешного проекта",
+            "Запустить полноценный сайт AUREON",
+            "Протестировать AI Content System на реальном клиенте",
+        ]
+        strategy = db.query(StrategyState).first()
+        if strategy:
+            if isinstance(strategy.weekly_goals, list) and set(strategy.weekly_goals) == set(FAKE_WEEKLY):
+                strategy.weekly_goals = []
+            if isinstance(strategy.monthly_goals, list) and set(strategy.monthly_goals) == set(FAKE_MONTHLY):
+                strategy.monthly_goals = []
+            if strategy.progress_percent == 5.0:
+                strategy.progress_percent = 0.0
+
+        FAKE_STATUS_TASKS = {
+            "Запустить Telegram-канал AUREON": "completed",
+            "Получить первого платящего клиента": "in_progress",
+            "Разработать AI-бот для демо": "in_progress",
+            "Написать 10 постов в Telegram": "in_progress",
+            "Провести анализ 5 конкурентов": "completed",
+        }
+        for title, seeded_status in FAKE_STATUS_TASKS.items():
+            task = db.query(Task).filter(Task.title == title).first()
+            if task and task.status == seeded_status:
+                task.status = "pending"
+
+        # Delete fake named leads/offers that exist regardless of is_demo flag
+        from models import Lead, Offer
+        FAKE_LEAD_NAMES = [
+            "Telegram Business Channel", "LocalStyle Brand",
+            "SkillUp School", "MindGrow Blogger", "LaunchPad Startup",
+        ]
+        deleted_leads = db.query(Lead).filter(Lead.name.in_(FAKE_LEAD_NAMES)).delete(synchronize_session=False)
+        deleted_offers = db.query(Offer).filter(Offer.client.in_(FAKE_LEAD_NAMES)).delete(synchronize_session=False)
+        deleted_demo_leads = db.query(Lead).filter(Lead.is_demo == 1).delete(synchronize_session=False)
+        deleted_demo_offers = db.query(Offer).filter(Offer.is_demo == 1).delete(synchronize_session=False)
+
+        db.commit()
+        print(f"Demo data migration: cleaned fake seeded data. "
+              f"Removed {deleted_leads + deleted_demo_leads} fake leads, "
+              f"{deleted_offers + deleted_demo_offers} fake offers.")
+    except Exception as e:
+        print(f"Demo data migration error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def _add_cinema_agent():
+    from database import SessionLocal
+    from models import Agent
+    db = SessionLocal()
+    try:
+        if not db.query(Agent).filter(Agent.name == "Cinema Agent").first():
+            db.add(Agent(
+                name="Cinema Agent",
+                role="mood, films, scenes, quotes, content references",
+                status="active",
+                current_task="Подбор фильмов и сцен под настроение AUREON-контента",
+                last_result=None,
+                priority=5,
+                icon="🎬",
+                color="#8B5CF6",
+                tasks_completed=0,
+            ))
+            db.commit()
+    except Exception:
+        pass
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db = next(get_db())
     try:
         seed_database(db)
+        from memory.service import seed_initial_memories
+        seed_initial_memories(db)
+        _add_cinema_agent()
     finally:
         db.close()
+    _migrate_clean_demo_data()
     sched.init_scheduler()
 
+    polling_enabled = os.getenv("TELEGRAM_BOT_POLLING", "true").lower() != "false"
     bot_mode = os.getenv("TELEGRAM_BOT_MODE", "polling").lower()
-    if bot_mode == "polling":
+    if bot_mode == "polling" and polling_enabled:
         tg_bot.start_polling()
 
     yield
@@ -95,6 +217,8 @@ app.include_router(telegram.router)
 app.include_router(automation.router)
 app.include_router(admin.router)
 app.include_router(sales.router)
+app.include_router(memory_router.router)
+app.include_router(cinema.router)
 
 
 @app.get("/")

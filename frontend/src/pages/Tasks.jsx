@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import { getTasks, createTask } from '../api/client.js'
-import { MOCK_TASKS } from '../api/mockData.js'
 import TaskCard from '../components/TaskCard.jsx'
 import Button from '../components/Button.jsx'
 
@@ -12,7 +11,7 @@ export default function Tasks() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ title: '', agent: 'CEO Agent', priority: 'medium' })
 
-  const load = () => getTasks().then(setTasks).catch(() => setTasks(MOCK_TASKS))
+  const load = () => getTasks().then(setTasks).catch(() => setTasks([]))
   useEffect(() => { load() }, [])
 
   const filtered = filter === 'all' ? tasks : tasks.filter(t => t.status === filter)

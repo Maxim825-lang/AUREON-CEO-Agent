@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import { getContent, generatePost, updatePostStatus, deletePost, publishPostToTelegram } from '../api/client.js'
-import { MOCK_CONTENT } from '../api/mockData.js'
 import Button from '../components/Button.jsx'
 
 const TOPICS = ['AUREON', 'AI', 'предпринимательство', 'WAIC 2027', 'дисциплина', 'продуктивность']
@@ -205,7 +204,7 @@ export default function Content() {
   const [generating, setGenerating] = useState(false)
   const [filter, setFilter] = useState('all')
 
-  const load = () => getContent().then(setPosts).catch(() => setPosts(MOCK_CONTENT))
+  const load = () => getContent().then(setPosts).catch(() => setPosts([]))
   useEffect(() => { load() }, [])
 
   const generate = async () => {
