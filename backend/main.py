@@ -18,7 +18,7 @@ from services.ceo_cycle import run_ceo_cycle
 from services.strategy_engine import days_until_waic, get_focus_of_day, get_risk_level
 from models import ActionLog, Task, Agent, Settings, StrategyState, TelegramUser
 
-from routers import agents, tasks, leads, content, offers, strategy, settings, telegram, automation, admin, sales, cinema, miniapp, conversations
+from routers import agents, tasks, leads, content, offers, strategy, settings, telegram, automation, admin, sales, cinema, miniapp, conversations, memory_collector
 from memory import router as memory_router
 from services import scheduler as sched
 from services import telegram_bot as tg_bot
@@ -244,6 +244,7 @@ app.include_router(memory_router.router)
 app.include_router(cinema.router)
 app.include_router(miniapp.router)
 app.include_router(conversations.router)
+app.include_router(memory_collector.router)
 
 
 @app.get("/")

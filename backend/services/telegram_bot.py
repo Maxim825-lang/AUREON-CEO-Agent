@@ -536,6 +536,15 @@ def _cmd_help(chat_id: str, db):
         "/services — Услуги AUREON\n"
         "/portfolio — Портфолио\n"
         "/help — Эта справка\n\n"
+        "<b>Memory Collector:</b>\n"
+        "/save [текст] — Сохранить заметку\n"
+        "/idea [текст] — Сохранить идею\n"
+        "/task [текст] — Создать задачу\n"
+        "/client [текст] — Клиентская заметка\n"
+        "/today — Сохранённое сегодня\n"
+        "/search [запрос] — Поиск по памяти\n"
+        "/memory — Последние записи\n"
+        "Или просто отправьте текст — предложу, как сохранить.\n\n"
         "<i>Я AI-представитель AUREON. Не выдаю себя за Максима.</i>"
     )
     _send(chat_id, text, keyboard=_main_kb())
@@ -672,7 +681,10 @@ def _dispatch(update: dict, db) -> None:
         return
 
     cmd = text.split()[0].lower().split("@")[0]
+    args = text.split(maxsplit=1)[1] if len(text.split(maxsplit=1)) > 1 else ""
     _ensure_user(db, chat_id, from_user, cmd)
+
+    from services import memory_collector_bot as mc
 
     COMMANDS = {
         "/start": lambda: _cmd_start(chat_id, from_user, db),
@@ -696,6 +708,14 @@ def _dispatch(update: dict, db) -> None:
         "/my_request": lambda: _cmd_my_request(chat_id, db),
         "/cancel": lambda: _cmd_cancel_discovery(chat_id, db),
         "/human": lambda: _cmd_human_request(chat_id, db),
+        # Memory Collector
+        "/save": lambda: mc.cmd_save(chat_id, args, from_user, db, kind="note"),
+        "/idea": lambda: mc.cmd_save(chat_id, args, from_user, db, kind="idea"),
+        "/task": lambda: mc.cmd_save(chat_id, args, from_user, db, kind="task"),
+        "/client": lambda: mc.cmd_save(chat_id, args, from_user, db, kind="client"),
+        "/today": lambda: mc.cmd_today(chat_id, db),
+        "/search": lambda: mc.cmd_search(chat_id, args, db),
+        "/memory": lambda: mc.cmd_memory(chat_id, db),
     }
     handler = COMMANDS.get(cmd)
     if handler:
@@ -703,11 +723,11 @@ def _dispatch(update: dict, db) -> None:
     elif cmd.startswith("/"):
         _send(chat_id, "Не знаю такой команды. /help — список всех команд.", keyboard=_main_kb())
     else:
-        _handle_free_text(chat_id, text, db)
+        _handle_free_text(chat_id, text, from_user, db)
 
 
-def _handle_free_text(chat_id: str, text: str, db) -> None:
-    """Route free-text messages — discovery conversations or fallback."""
+def _handle_free_text(chat_id: str, text: str, from_user: dict, db) -> None:
+    """Route free-text messages — discovery conversations or Memory Collector."""
     from models import Conversation
     conv = db.query(Conversation).filter(
         Conversation.telegram_chat_id == chat_id,
@@ -723,7 +743,8 @@ def _handle_free_text(chat_id: str, text: str, db) -> None:
             from services.discovery_agent import handle_client_message
             handle_client_message(conv, text, db, chat_id)
     else:
-        _send(chat_id, "Не понял. Используй /help — список всех команд.", keyboard=_main_kb())
+        from services import memory_collector_bot as mc
+        mc.offer_classification(chat_id, text, from_user, db)
 
 
 def _cmd_my_request(chat_id: str, db) -> None:
@@ -824,6 +845,11 @@ def _handle_callback(callback: dict, db) -> None:
 
     from_user = callback.get("from") or {}
     _ensure_user(db, chat_id, from_user, f"cb:{data}")
+
+    if data.startswith("mc_"):
+        from services import memory_collector_bot as mc
+        mc.handle_callback(chat_id, data, from_user, db)
+        return
 
     if data == "run_cycle":
         _cmd_run(chat_id, db)

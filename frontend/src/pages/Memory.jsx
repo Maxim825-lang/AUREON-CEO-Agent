@@ -82,6 +82,7 @@ const tag = (color = 'var(--text-muted)') => ({
 
 const TABS = [
   { key: 'dashboard',  label: 'Dashboard' },
+  { key: 'collector',  label: 'Collector' },
   { key: 'long',       label: 'Long Memory' },
   { key: 'knowledge',  label: 'Knowledge' },
   { key: 'founder',    label: 'Founder' },
@@ -137,6 +138,7 @@ export default function Memory() {
       </div>
 
       {tab === 'dashboard'  && <DashboardTab />}
+      {tab === 'collector'  && <CollectorTab />}
       {tab === 'long'       && <LongMemoryTab />}
       {tab === 'knowledge'  && <KnowledgeTab />}
       {tab === 'founder'    && <FounderTab />}
@@ -492,6 +494,131 @@ function MiniCard({ entry }) {
           <span style={{ marginLeft: 8 }}>{new Date(entry.created_at).toLocaleDateString('ru-RU')}</span>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Tab: Collector (Telegram Memory Collector) ────────────────────────────────
+
+const COLLECTOR_KINDS = [
+  { key: '',       label: 'Все',            color: 'var(--gold)' },
+  { key: 'idea',   label: '💡 Идеи',        color: '#D4AF37' },
+  { key: 'task',   label: '✅ Задачи',      color: '#3B82F6' },
+  { key: 'client', label: '🤝 Клиенты',     color: '#8B5CF6' },
+  { key: 'note',   label: '📝 Заметки',     color: '#F59E0B' },
+]
+
+function CollectorTab() {
+  const [entries, setEntries] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [kind, setKind] = useState('')
+  const [query, setQuery] = useState('')
+  const [searching, setSearching] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setSearching(false)
+    try {
+      const params = new URLSearchParams({ limit: 100 })
+      if (kind) params.set('type', kind)
+      setEntries(await get(`/api/memory-collector/recent?${params}`))
+    } catch { } finally { setLoading(false) }
+  }, [kind])
+
+  useEffect(() => { load() }, [load])
+
+  async function handleSearch(e) {
+    e.preventDefault()
+    if (!query.trim()) { load(); return }
+    setLoading(true)
+    setSearching(true)
+    try {
+      const data = await get(`/api/memory-collector/search?q=${encodeURIComponent(query)}&limit=50`)
+      setEntries(data.results || [])
+    } catch { setEntries([]) } finally { setLoading(false) }
+  }
+
+  async function handleToTask(entry) {
+    try {
+      const res = await post(`/api/memory-collector/${entry.id}/to-task`)
+      setEntries(p => p.map(x => x.id === entry.id ? res.entry : x))
+      alert(`Задача #${res.task_id} создана`)
+    } catch (e) { alert(e.message) }
+  }
+
+  async function handlePin(entry) {
+    try {
+      const res = await post(`/api/memory-collector/${entry.id}/pin`)
+      setEntries(p => p.map(x => x.id === entry.id ? res.entry : x))
+    } catch (e) { alert(e.message) }
+  }
+
+  return (
+    <div>
+      <div style={{
+        ...card,
+        background: 'rgba(59,130,246,0.05)',
+        border: '1px solid rgba(59,130,246,0.2)',
+        marginBottom: 16,
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#3B82F6', marginBottom: 4 }}>
+          📥 Telegram Memory Collector
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          Записи, сохранённые через Telegram-бота: /save, /idea, /task, /client — или любое сообщение с выбором типа.
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        {COLLECTOR_KINDS.map(k => (
+          <button key={k.key} style={btn(kind === k.key && !searching ? 'gold' : 'default')}
+            onClick={() => { setQuery(''); setKind(k.key) }}>{k.label}</button>
+        ))}
+        <form onSubmit={handleSearch} style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+          <input
+            style={{ ...inputStyle, width: 220 }}
+            placeholder="Поиск по заметкам…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
+          <button type="submit" style={btn('gold')}>🔍</button>
+        </form>
+      </div>
+
+      {loading ? (
+        <div style={{ color: 'var(--text-muted)', padding: 16 }}>Загрузка…</div>
+      ) : entries.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📥</div>
+          <div style={{ fontSize: 14, marginBottom: 4 }}>
+            {searching ? 'Ничего не найдено' : 'Пока нет сохранённых заметок'}
+          </div>
+          <div style={{ fontSize: 12 }}>Отправьте боту /save, /idea, /task или просто текст</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {entries.map(e => {
+            const hasTask = (e.linked_objects || []).some(o => o.type === 'task')
+            return (
+              <div key={e.id} style={{ position: 'relative' }}>
+                <MemoryCard
+                  entry={e}
+                  onDeleted={id => setEntries(p => p.filter(x => x.id !== id))}
+                  onArchived={id => setEntries(p => p.filter(x => x.id !== id))}
+                />
+                <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
+                  {!hasTask && (
+                    <button style={btn()} onClick={() => handleToTask(e)}>📋 Convert to Task</button>
+                  )}
+                  {e.type !== 'founder' && (
+                    <button style={btn('gold')} onClick={() => handlePin(e)}>📌 Pin to Founder</button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
