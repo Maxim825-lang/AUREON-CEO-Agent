@@ -1,7 +1,9 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from datetime import date
 from dotenv import load_dotenv
 
@@ -13,11 +15,40 @@ from seed import seed_database
 from schemas import CycleResult
 from services.ceo_cycle import run_ceo_cycle
 from services.strategy_engine import days_until_waic, get_focus_of_day, get_risk_level
-from models import ActionLog, Task, Agent, Settings, StrategyState
+from models import ActionLog, Task, Agent, Settings, StrategyState, TelegramUser
 
-from routers import agents, tasks, leads, content, offers, strategy, settings, telegram
+from routers import agents, tasks, leads, content, offers, strategy, settings, telegram, automation, admin, sales
+from services import scheduler as sched
+from services import telegram_bot as tg_bot
 
 Base.metadata.create_all(bind=engine)
+
+
+def _migrate_add_columns():
+    """Add new columns to existing tables if missing (idempotent)."""
+    migrations = [
+        ("leads", "contact", "ALTER TABLE leads ADD COLUMN contact TEXT"),
+        ("leads", "platform", "ALTER TABLE leads ADD COLUMN platform TEXT"),
+        ("leads", "source_url", "ALTER TABLE leads ADD COLUMN source_url TEXT"),
+        ("leads", "notes", "ALTER TABLE leads ADD COLUMN notes TEXT"),
+        ("leads", "is_demo", "ALTER TABLE leads ADD COLUMN is_demo INTEGER DEFAULT 0"),
+        ("leads", "telegram_chat_id", "ALTER TABLE leads ADD COLUMN telegram_chat_id TEXT"),
+        ("offers", "is_demo", "ALTER TABLE offers ADD COLUMN is_demo INTEGER DEFAULT 0"),
+        ("content_posts", "is_demo", "ALTER TABLE content_posts ADD COLUMN is_demo INTEGER DEFAULT 0"),
+        ("telegram_users", "is_admin", "ALTER TABLE telegram_users ADD COLUMN is_admin BOOLEAN DEFAULT 0"),
+        ("telegram_users", "command_count", "ALTER TABLE telegram_users ADD COLUMN command_count INTEGER DEFAULT 0"),
+        ("telegram_users", "last_command", "ALTER TABLE telegram_users ADD COLUMN last_command TEXT"),
+    ]
+    with engine.connect() as conn:
+        for table, col, sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                pass
+
+
+_migrate_add_columns()
 
 
 @asynccontextmanager
@@ -27,7 +58,20 @@ async def lifespan(app: FastAPI):
         seed_database(db)
     finally:
         db.close()
+    sched.init_scheduler()
+
+    bot_mode = os.getenv("TELEGRAM_BOT_MODE", "polling").lower()
+    if bot_mode == "polling":
+        tg_bot.start_polling()
+
     yield
+
+    tg_bot.stop_polling()
+    try:
+        if sched._scheduler.running:
+            sched._scheduler.shutdown(wait=False)
+    except Exception:
+        pass
 
 
 app = FastAPI(title="AUREON CEO Agent API", version="1.0.0", lifespan=lifespan)
@@ -48,6 +92,9 @@ app.include_router(offers.router)
 app.include_router(strategy.router)
 app.include_router(settings.router)
 app.include_router(telegram.router)
+app.include_router(automation.router)
+app.include_router(admin.router)
+app.include_router(sales.router)
 
 
 @app.get("/")

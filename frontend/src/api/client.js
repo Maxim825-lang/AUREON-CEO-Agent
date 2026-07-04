@@ -44,5 +44,39 @@ export const testTelegram = () => api.post('/api/telegram/test').then(r => r.dat
 export const getTelegramStatus = () => api.get('/api/telegram/status').then(r => r.data)
 export const publishPostToTelegram = (id) => api.post(`/api/telegram/publish-post/${id}`).then(r => r.data)
 export const publishLatestToTelegram = () => api.post('/api/telegram/publish-latest-post').then(r => r.data)
+export const getTelegramUpdates = () => api.get('/api/telegram/get-updates').then(r => r.data)
+export const importTelegramChatId = (data) => api.post('/api/telegram/import-chat-id', data).then(r => r.data)
+
+// Bot
+export const getBotStatus = () => api.get('/api/telegram/bot-status').then(r => r.data)
+export const getBotUsers = () => api.get('/api/telegram/bot-users').then(r => r.data)
+export const getBotActions = (limit = 20) => api.get('/api/telegram/bot-actions', { params: { limit } }).then(r => r.data)
+export const startBot = () => api.post('/api/telegram/start-bot').then(r => r.data)
+export const stopBot = () => api.post('/api/telegram/stop-bot').then(r => r.data)
+export const setWebhook = (webhook_url) => api.post('/api/telegram/set-webhook', { webhook_url }).then(r => r.data)
+export const syncTelegramUpdates = () => api.get('/api/telegram/sync-updates').then(r => r.data)
+export const syncSalesChatIds = () => api.post('/api/sales/sync-chat-ids').then(r => r.data)
+
+export const getAutomationStatus = () => api.get('/api/automation/status').then(r => r.data)
+export const startAutomation = () => api.post('/api/automation/start').then(r => r.data)
+export const stopAutomation = () => api.post('/api/automation/stop').then(r => r.data)
+export const runAutomationNow = () => api.post('/api/automation/run-now').then(r => r.data)
+
+// Admin
+export const clearDemoData = () => api.post('/api/admin/clear-demo-data').then(r => r.data)
+export const getDemoDataCount = () => api.get('/api/admin/demo-data-count').then(r => r.data)
+
+// Lead Finder
+export const findRealLeads = (data) => api.post('/api/leads/find-real', data).then(r => r.data)
+export const generateOutreach = (leadId) => api.post(`/api/leads/${leadId}/generate-outreach`).then(r => r.data)
+export const generateOfferForLead = (leadId) => api.post(`/api/leads/${leadId}/generate-offer`).then(r => r.data)
+export const getPipelineStats = () => api.get('/api/leads/pipeline/stats').then(r => r.data)
+export const markLeadContacted = (id) => api.post(`/api/leads/${id}/mark-contacted`).then(r => r.data)
+export const markLeadProposalSent = (id) => api.post(`/api/leads/${id}/mark-proposal-sent`).then(r => r.data)
+export const markLeadWon = (id) => api.post(`/api/leads/${id}/mark-won`).then(r => r.data)
+export const markLeadLost = (id) => api.post(`/api/leads/${id}/mark-lost`).then(r => r.data)
+
+// Services catalog
+export const getServicesCatalog = () => api.get('/api/offers/services/catalog').then(r => r.data)
 
 export default api

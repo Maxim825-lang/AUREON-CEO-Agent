@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { getSettings, updateSettings, testTelegram, getTelegramStatus, saveTelegramSettings } from '../api/client.js'
-import { MOCK_SETTINGS } from '../api/mockData.js'
+import { getSettings, updateSettings, testTelegram, getTelegramStatus, saveTelegramSettings, clearDemoData, getDemoDataCount, getTelegramUpdates, importTelegramChatId } from '../api/client.js'
 import Button from '../components/Button.jsx'
 
 const AUTONOMY_LEVELS = [
@@ -19,15 +18,40 @@ export default function Settings() {
   const [tgForm, setTgForm] = useState({ bot_token: '', channel_id: '' })
   const [tgSaving, setTgSaving] = useState(false)
   const [tgSaved, setTgSaved] = useState(null)
+  const [demoCount, setDemoCount] = useState(null)
+  const [clearingDemo, setClearingDemo] = useState(false)
+  const [clearMsg, setClearMsg] = useState(null)
+  const [tgUpdates, setTgUpdates] = useState(null)
+  const [tgUpdatesLoading, setTgUpdatesLoading] = useState(false)
+  const [tgUpdatesErr, setTgUpdatesErr] = useState(null)
+  const [importingChatId, setImportingChatId] = useState({})
+  const [importMsg, setImportMsg] = useState({})
 
   useEffect(() => {
     getSettings()
       .then(s => { setSettings(s); setForm(s) })
-      .catch(() => { setSettings(MOCK_SETTINGS); setForm(MOCK_SETTINGS) })
+      .catch(() => {})
     getTelegramStatus()
       .then(d => setTgConfigured(d.configured))
       .catch(() => setTgConfigured(false))
+    getDemoDataCount()
+      .then(setDemoCount)
+      .catch(() => {})
   }, [])
+
+  const handleClearDemo = async () => {
+    if (!window.confirm('Удалить все demo/mock лиды, офферы и посты? Настройки и логи не затронуты.')) return
+    setClearingDemo(true)
+    try {
+      const r = await clearDemoData()
+      setClearMsg({ ok: true, msg: r.message })
+      getDemoDataCount().then(setDemoCount).catch(() => {})
+    } catch {
+      setClearMsg({ ok: false, msg: 'Ошибка очистки — backend недоступен?' })
+    }
+    setClearingDemo(false)
+    setTimeout(() => setClearMsg(null), 5000)
+  }
 
   const set = (key, value) => setForm(f => ({ ...f, [key]: value }))
 
@@ -61,6 +85,42 @@ export default function Settings() {
     setTimeout(() => setTgTest(null), 6000)
   }
 
+  const handleGetUpdates = async () => {
+    setTgUpdatesLoading(true)
+    setTgUpdatesErr(null)
+    try {
+      const data = await getTelegramUpdates()
+      setTgUpdates(data)
+    } catch (err) {
+      setTgUpdatesErr(err?.response?.data?.detail || 'Ошибка получения обновлений')
+    }
+    setTgUpdatesLoading(false)
+  }
+
+  const handleImportChatId = async (update) => {
+    const key = update.update_id
+    setImportingChatId(p => ({ ...p, [key]: true }))
+    try {
+      const result = await importTelegramChatId({
+        chat_id: update.chat_id,
+        username: update.username,
+        first_name: update.first_name,
+        last_name: update.last_name,
+      })
+      setImportMsg(p => ({
+        ...p,
+        [key]: { ok: true, msg: result.status === 'created' ? `Создан лид: ${result.name}` : `Обновлён лид #${result.lead_id}: ${result.name}` },
+      }))
+    } catch (err) {
+      setImportMsg(p => ({
+        ...p,
+        [key]: { ok: false, msg: err?.response?.data?.detail || 'Ошибка импорта' },
+      }))
+    }
+    setImportingChatId(p => ({ ...p, [key]: false }))
+    setTimeout(() => setImportMsg(p => { const n = { ...p }; delete n[key]; return n }), 5000)
+  }
+
   const save = async () => {
     try { await updateSettings(form) } catch {}
     setSaved(true)
@@ -68,7 +128,10 @@ export default function Settings() {
   }
 
   if (!form.project_name) return (
-    <div style={{ color: 'var(--text-muted)', padding: '40px', textAlign: 'center' }}>Loading settings...</div>
+    <div style={{ color: 'var(--text-muted)', padding: '40px', textAlign: 'center' }}>
+      <div style={{ marginBottom: '8px' }}>Loading settings...</div>
+      <div style={{ fontSize: '11px' }}>Backend недоступен — настройки недоступны без сервера.</div>
+    </div>
   )
 
   const inputStyle = {
@@ -318,6 +381,140 @@ export default function Settings() {
           <Button variant="secondary" onClick={handleTestTelegram} disabled={tgTesting} size="sm">
             {tgTesting ? '⟳ Проверяю...' : '⚡ Test Connection'}
           </Button>
+        </div>
+      </div>
+
+      {/* Telegram Debug Tools */}
+      <div style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '20px',
+        marginBottom: '14px',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+          <div>
+            <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Space Grotesk', marginBottom: '3px' }}>
+              Telegram Debug Tools
+            </h3>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              Получи chat_id пользователей, написавших боту, и сохрани их в базу
+            </div>
+          </div>
+          <Button variant="secondary" size="sm" onClick={handleGetUpdates} disabled={tgUpdatesLoading}>
+            {tgUpdatesLoading ? '⟳ Загружаю...' : '⟳ Get Updates'}
+          </Button>
+        </div>
+
+        {tgUpdatesErr && (
+          <div style={{
+            fontSize: '12px', color: 'var(--red)',
+            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+            borderRadius: '6px', padding: '8px 12px', marginBottom: '12px',
+          }}>
+            ✗ {tgUpdatesErr}
+          </div>
+        )}
+
+        {tgUpdates && tgUpdates.count === 0 && (
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '12px', textAlign: 'center' }}>
+            Нет обновлений. Напишите боту в Telegram, потом нажмите Get Updates.
+          </div>
+        )}
+
+        {tgUpdates && tgUpdates.updates.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {tgUpdates.updates.map(u => (
+              <div key={u.update_id} style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                padding: '10px 12px',
+                display: 'grid',
+                gridTemplateColumns: '1fr auto',
+                gap: '10px',
+                alignItems: 'start',
+              }}>
+                <div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {u.first_name || '—'}{u.last_name ? ' ' + u.last_name : ''}
+                    </span>
+                    {u.username && (
+                      <span style={{ fontSize: '11px', color: 'var(--gold)' }}>@{u.username}</span>
+                    )}
+                    <span style={{
+                      fontSize: '10px', color: 'var(--text-muted)',
+                      background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: '4px',
+                    }}>
+                      chat_id: {u.chat_id}
+                    </span>
+                  </div>
+                  {u.message && (
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      "{u.message.length > 80 ? u.message.slice(0, 80) + '...' : u.message}"
+                    </div>
+                  )}
+                  {importMsg[u.update_id] && (
+                    <div style={{
+                      fontSize: '11px', marginTop: '5px',
+                      color: importMsg[u.update_id].ok ? 'var(--green)' : 'var(--red)',
+                    }}>
+                      {importMsg[u.update_id].ok ? '✓ ' : '✗ '}{importMsg[u.update_id].msg}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => handleImportChatId(u)}
+                  disabled={importingChatId[u.update_id]}
+                >
+                  {importingChatId[u.update_id] ? '⟳' : 'Import chat_id'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Clear Demo Data */}
+      <div style={{
+        background: 'rgba(239,68,68,0.04)',
+        border: '1px solid rgba(239,68,68,0.15)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '16px',
+        marginBottom: '14px',
+      }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--red)', fontFamily: 'Space Grotesk', marginBottom: '6px' }}>
+          Demo Data Management
+        </div>
+        {demoCount && (
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.6 }}>
+            Demo лиды: <span style={{ color: demoCount.demo_leads > 0 ? 'var(--gold)' : 'var(--green)' }}>{demoCount.demo_leads}</span>
+            {' · '}Demo офферы: <span style={{ color: demoCount.demo_offers > 0 ? 'var(--gold)' : 'var(--green)' }}>{demoCount.demo_offers}</span>
+            {' · '}Demo посты: <span style={{ color: demoCount.demo_posts > 0 ? 'var(--gold)' : 'var(--green)' }}>{demoCount.demo_posts}</span>
+            {' · '}Реальные лиды: <span style={{ color: 'var(--green)', fontWeight: 600 }}>{demoCount.real_leads}</span>
+          </div>
+        )}
+        {clearMsg && (
+          <div style={{
+            fontSize: '11px',
+            color: clearMsg.ok ? 'var(--green)' : 'var(--red)',
+            background: clearMsg.ok ? 'var(--green-dim)' : 'rgba(239,68,68,0.08)',
+            border: `1px solid ${clearMsg.ok ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.25)'}`,
+            borderRadius: '5px', padding: '7px 10px', marginBottom: '10px',
+          }}>
+            {clearMsg.ok ? '✓ ' : '✗ '}{clearMsg.msg}
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <Button variant="danger" size="sm" onClick={handleClearDemo} disabled={clearingDemo}>
+            {clearingDemo ? '⟳ Clearing...' : 'Clear Demo Data'}
+          </Button>
+          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+            Удалит demo-лиды, офферы и посты. Настройки Telegram, automation и action logs — не затрагиваются.
+          </span>
         </div>
       </div>
 

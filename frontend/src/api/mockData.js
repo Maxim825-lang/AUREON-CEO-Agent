@@ -103,3 +103,11 @@ export const MOCK_SETTINGS = {
   autonomy_level: 1,
   waic_date: "2027-07-01",
 }
+
+export const AUREON_SERVICES_FALLBACK = [
+  { id: 1, name: "AI Telegram Bot", price_from: 300, price_to: 1500, currency: "USD", timeline: "7-14 дней", description: "Умный AI-бот для Telegram: автоответы, квалификация лидов, интеграция с CRM", features: ["Автоответы 24/7", "Квалификация лидов", "Интеграция с CRM", "Аналитика"], ideal_for: ["Telegram-каналы", "Онлайн-школы", "Малый бизнес"], color: "#3B82F6", icon: "🤖", roi_example: "Экономия 3-4 часов в день" },
+  { id: 2, name: "AI Content System", price_from: 500, price_to: 2500, currency: "USD", timeline: "10-21 день", description: "Автоматическая генерация и публикация контента в вашем стиле", features: ["Авто-посты по расписанию", "Адаптация под стиль бренда", "Авто-публикация в Telegram", "Контент-план"], ideal_for: ["Блогеры", "Telegram-каналы", "Бренды"], color: "#8B5CF6", icon: "📢", roi_example: "Экономия 20-30 часов в месяц" },
+  { id: 3, name: "Landing Page + AI Chat", price_from: 700, price_to: 2000, currency: "USD", timeline: "5-10 дней", description: "Конвертирующий лендинг с AI-чатом, квалифицирующим лидов", features: ["Современный дизайн", "AI-чат для квалификации", "Интеграция с CRM", "Аналитика конверсий"], ideal_for: ["Стартапы", "Фрилансеры", "Малый бизнес"], color: "#10B981", icon: "🌐", roi_example: "Рост конверсии на 40-60%" },
+  { id: 4, name: "Business Automation", price_from: 1000, price_to: 5000, currency: "USD", timeline: "21-45 дней", description: "Комплексная AI-автоматизация бизнес-процессов", features: ["Аудит процессов", "Автоматизация рутины", "AI-агент", "Интеграция систем"], ideal_for: ["Агентства", "E-commerce", "Сервисные компании"], color: "#F59E0B", icon: "⚙️", roi_example: "Снижение расходов на 30-50%" },
+  { id: 5, name: "AUREON Mini HQ", price_from: 1500, price_to: 8000, currency: "USD", timeline: "30-60 дней", description: "Полная AI-система: контент + продажи + операции + аналитика", features: ["CEO AI-агент", "Content Agent 24/7", "Sales Agent", "Автоматизация операционки", "Дашборд"], ideal_for: ["Стартапы", "Онлайн-школы", "Агентства"], color: "#D4AF37", icon: "👑", roi_example: "Замена 2-3 позиций в команде" },
+]

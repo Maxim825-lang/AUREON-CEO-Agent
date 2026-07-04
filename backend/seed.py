@@ -1,8 +1,6 @@
 from sqlalchemy.orm import Session
-from models import Agent, Task, ActionLog, Lead, ContentPost, Offer, StrategyState, Settings
+from models import Agent, Task, ActionLog, StrategyState, Settings
 from services.strategy_engine import DEFAULT_STRATEGY
-from services.sales_generator import MOCK_LEADS
-from services.content_generator import generate_post
 
 
 AGENTS_SEED = [
@@ -202,28 +200,6 @@ ACTIONS_SEED = [
     },
 ]
 
-OFFERS_SEED = [
-    {
-        "client": "SkillUp School",
-        "service": "AI Telegram Bot",
-        "price": 900,
-        "timeline": "10 дней",
-        "status": "sent",
-        "content": "Предложение: AI-бот для автоматической записи на курсы, квалификации студентов и напоминаний. Интеграция с расписанием.",
-        "lead_id": 3,
-    },
-    {
-        "client": "LaunchPad Startup",
-        "service": "Landing Page + AI",
-        "price": 1500,
-        "timeline": "7 дней",
-        "status": "draft",
-        "content": "Предложение: конвертирующий лендинг с AI-чатом для захвата лидов и квалификации клиентов.",
-        "lead_id": 5,
-    },
-]
-
-
 def seed_database(db: Session):
     if db.query(Agent).count() > 0:
         return
@@ -240,20 +216,6 @@ def seed_database(db: Session):
         log = ActionLog(**action_data)
         db.add(log)
 
-    for lead_data in MOCK_LEADS:
-        lead = Lead(**lead_data)
-        db.add(lead)
-
-    for topic in ["AUREON", "AI", "предпринимательство"]:
-        post_data = generate_post(topic)
-        post_data["status"] = "ready" if topic == "AUREON" else "draft"
-        post = ContentPost(**post_data)
-        db.add(post)
-
-    for offer_data in OFFERS_SEED:
-        offer = Offer(**offer_data)
-        db.add(offer)
-
     strategy = StrategyState(**DEFAULT_STRATEGY)
     db.add(strategy)
 
@@ -261,4 +223,4 @@ def seed_database(db: Session):
     db.add(settings)
 
     db.commit()
-    print("Database seeded successfully.")
+    print("Database seeded successfully (no demo leads/offers).")

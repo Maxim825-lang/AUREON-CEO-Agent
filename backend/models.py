@@ -53,6 +53,8 @@ class Lead(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(200), nullable=False)
     company = Column(String(200))
+    contact = Column(String(200))
+    platform = Column(String(100))
     niche = Column(String(100))
     problem = Column(Text)
     aureon_offer = Column(Text)
@@ -62,6 +64,10 @@ class Lead(Base):
     email = Column(String(200))
     telegram = Column(String(100))
     score = Column(Integer, default=0)
+    source_url = Column(String(500))
+    notes = Column(Text)
+    is_demo = Column(Integer, default=0)
+    telegram_chat_id = Column(String(100))
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -77,6 +83,7 @@ class ContentPost(Base):
     platform = Column(String(50), default="telegram")
     tags = Column(JSON, default=list)
     views = Column(Integer, default=0)
+    is_demo = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -92,6 +99,7 @@ class Offer(Base):
     status = Column(String(50), default="draft")
     content = Column(Text)
     lead_id = Column(Integer)
+    is_demo = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -124,4 +132,62 @@ class Settings(Base):
     openai_api_key = Column(String(200), default="")
     autonomy_level = Column(Integer, default=1)
     waic_date = Column(String(50), default="2027-07-01")
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class SalesConversation(Base):
+    __tablename__ = "sales_conversations"
+
+    id = Column(Integer, primary_key=True)
+    lead_id = Column(Integer, nullable=False)
+    platform = Column(String(50), default="telegram")
+    status = Column(String(50), default="open")  # open, won, lost
+    last_inbound_at = Column(DateTime)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class SalesMessage(Base):
+    __tablename__ = "sales_messages"
+
+    id = Column(Integer, primary_key=True)
+    conversation_id = Column(Integer, nullable=False)
+    lead_id = Column(Integer, nullable=False)
+    direction = Column(String(10), nullable=False)  # outbound, inbound
+    content = Column(Text, nullable=False)
+    platform = Column(String(50), default="telegram")
+    sent = Column(Boolean, default=False)
+    sent_at = Column(DateTime)
+    telegram_message_id = Column(String(100))
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class TelegramUser(Base):
+    __tablename__ = "telegram_users"
+
+    id = Column(Integer, primary_key=True)
+    chat_id = Column(String(100), unique=True, nullable=False)
+    username = Column(String(100))
+    first_name = Column(String(200))
+    last_name = Column(String(200))
+    is_admin = Column(Boolean, default=False)
+    registered_at = Column(DateTime, server_default=func.now())
+    last_seen_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    command_count = Column(Integer, default=0)
+    last_command = Column(String(100))
+
+
+class SalesSettings(Base):
+    __tablename__ = "sales_settings"
+
+    id = Column(Integer, primary_key=True)
+    real_sales_mode = Column(Boolean, default=False)
+    auto_send_first = Column(Boolean, default=False)
+    auto_reply = Column(Boolean, default=False)
+    daily_limit = Column(Integer, default=5)
+    allowed_platforms = Column(JSON, default=lambda: ["telegram"])
+    forbidden_words = Column(JSON, default=list)
+    max_discount = Column(Integer, default=20)
+    min_price = Column(Float, default=100.0)
+    telegram_bot_token = Column(String(300), default="")
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

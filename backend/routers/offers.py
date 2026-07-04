@@ -4,6 +4,7 @@ from database import get_db
 from models import Offer
 from schemas import OfferSchema, OfferCreate
 from services.sales_generator import generate_offer
+from services.services_catalog import AUREON_SERVICES
 from typing import List
 
 router = APIRouter(prefix="/api/offers", tags=["offers"])
@@ -42,3 +43,8 @@ def delete_offer(offer_id: int, db: Session = Depends(get_db)):
         db.delete(offer)
         db.commit()
     return {"status": "deleted"}
+
+
+@router.get("/services/catalog")
+def get_services_catalog():
+    return AUREON_SERVICES

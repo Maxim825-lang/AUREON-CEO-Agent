@@ -6,9 +6,13 @@ const NAV_ITEMS = [
   { path: '/agents', icon: '◈', label: 'Agents' },
   { path: '/tasks', icon: '◻', label: 'Tasks' },
   { path: '/leads', icon: '◎', label: 'Leads' },
+  { path: '/sales', icon: '◑', label: 'Sales' },
   { path: '/content', icon: '◧', label: 'Content' },
   { path: '/offers', icon: '◈', label: 'Offers' },
+  { path: '/services', icon: '◆', label: 'Services' },
   { path: '/strategy', icon: '◬', label: 'Strategy' },
+  { path: '/automation', icon: '⟳', label: 'Automation' },
+  { path: '/telegram-bot', icon: '✈', label: 'Telegram Bot' },
   { path: '/settings', icon: '◉', label: 'Settings' },
 ]
 

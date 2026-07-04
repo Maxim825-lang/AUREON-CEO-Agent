@@ -60,6 +60,8 @@ class ActionLogSchema(BaseModel):
 class LeadCreate(BaseModel):
     name: str
     company: Optional[str] = ""
+    contact: Optional[str] = ""
+    platform: Optional[str] = ""
     niche: Optional[str] = ""
     problem: Optional[str] = ""
     aureon_offer: Optional[str] = ""
@@ -67,12 +69,17 @@ class LeadCreate(BaseModel):
     status: Optional[str] = "new"
     email: Optional[str] = ""
     telegram: Optional[str] = ""
+    source_url: Optional[str] = ""
+    notes: Optional[str] = ""
+    is_demo: Optional[int] = 0
 
 
 class LeadSchema(BaseModel):
     id: int
     name: str
     company: Optional[str]
+    contact: Optional[str]
+    platform: Optional[str]
     niche: Optional[str]
     problem: Optional[str]
     aureon_offer: Optional[str]
@@ -82,10 +89,20 @@ class LeadSchema(BaseModel):
     email: Optional[str]
     telegram: Optional[str]
     score: int
+    source_url: Optional[str]
+    notes: Optional[str]
+    is_demo: Optional[int]
     created_at: Optional[datetime]
 
     class Config:
         from_attributes = True
+
+
+class FindLeadsRequest(BaseModel):
+    niche: str
+    location: str = "Worldwide"
+    service: str = "AI Telegram Bot"
+    max_results: Optional[int] = 10
 
 
 class ContentPostCreate(BaseModel):
@@ -179,3 +196,75 @@ class CycleResult(BaseModel):
     summary: str
     tasks_created: int
     posts_generated: int
+
+
+# ── Sales Agent ──────────────────────────────────────────────────────────────
+
+class SalesConversationSchema(BaseModel):
+    id: int
+    lead_id: int
+    platform: Optional[str]
+    status: str
+    last_inbound_at: Optional[datetime]
+    created_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class SalesMessageSchema(BaseModel):
+    id: int
+    conversation_id: int
+    lead_id: int
+    direction: str
+    content: str
+    platform: Optional[str]
+    sent: bool
+    sent_at: Optional[datetime]
+    created_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class SalesSettingsSchema(BaseModel):
+    id: int
+    real_sales_mode: bool
+    auto_send_first: bool
+    auto_reply: bool
+    daily_limit: int
+    allowed_platforms: Optional[Any]
+    forbidden_words: Optional[Any]
+    max_discount: int
+    min_price: float
+    telegram_bot_token: str
+
+    class Config:
+        from_attributes = True
+
+
+class SalesSettingsUpdate(BaseModel):
+    real_sales_mode: Optional[bool] = None
+    auto_send_first: Optional[bool] = None
+    auto_reply: Optional[bool] = None
+    daily_limit: Optional[int] = None
+    allowed_platforms: Optional[List[str]] = None
+    forbidden_words: Optional[List[str]] = None
+    max_discount: Optional[int] = None
+    min_price: Optional[float] = None
+    telegram_bot_token: Optional[str] = None
+
+
+class ImportLeadsRequest(BaseModel):
+    leads: List[dict]  # list of {name, telegram, niche, company, problem, estimated_price, source_url}
+
+
+class ImportUsernamesRequest(BaseModel):
+    usernames: str  # newline-separated @usernames
+    niche: Optional[str] = "general"
+    source: Optional[str] = "manual"
+
+
+class AddInboundRequest(BaseModel):
+    content: str
+    platform: Optional[str] = "telegram"

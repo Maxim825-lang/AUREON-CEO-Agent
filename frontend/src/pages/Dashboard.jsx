@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { getState, getActions, getTasks, getAgents } from '../api/client.js'
+import { getState, getActions, getTasks, getAgents, getPipelineStats } from '../api/client.js'
 import { MOCK_STATE, MOCK_ACTIONS, MOCK_TASKS, MOCK_AGENTS } from '../api/mockData.js'
 import StatCard from '../components/StatCard.jsx'
 import ProgressBar from '../components/ProgressBar.jsx'
@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [actions, setActions] = useState([])
   const [tasks, setTasks] = useState([])
   const [agents, setAgents] = useState([])
+  const [pipeline, setPipeline] = useState(null)
   const [offline, setOffline] = useState(false)
 
   const load = async () => {
@@ -43,6 +44,7 @@ export default function Dashboard() {
       setTasks(t)
       setAgents(ag)
       setOffline(false)
+      getPipelineStats().then(setPipeline).catch(() => {})
     } catch {
       setState(MOCK_STATE)
       setActions(MOCK_ACTIONS)
@@ -70,19 +72,20 @@ export default function Dashboard() {
     <div style={{ maxWidth: 1200, animation: 'fadeIn 0.3s ease' }}>
       {offline && (
         <div style={{
-          background: 'var(--gold-dim)',
-          border: '1px solid var(--border-gold)',
+          background: 'rgba(239,68,68,0.06)',
+          border: '1px solid rgba(239,68,68,0.2)',
           borderRadius: 'var(--radius-md)',
           padding: '8px 14px',
           fontSize: '11px',
-          color: 'var(--gold)',
+          color: 'var(--red)',
           marginBottom: '16px',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
         }}>
           <span>⚠</span>
-          Backend offline — showing demo data. Start backend: <code style={{ fontFamily: 'monospace', opacity: 0.8 }}>cd backend && uvicorn main:app --reload</code>
+          Backend offline — реальные данные недоступны.
+          Запустите: <code style={{ fontFamily: 'monospace', opacity: 0.8, marginLeft: 4 }}>cd backend && source venv/bin/activate && uvicorn main:app --reload</code>
         </div>
       )}
 
@@ -157,6 +160,60 @@ export default function Dashboard() {
           />
         </div>
       </div>
+
+      {/* Revenue Pipeline */}
+      {pipeline && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(16,185,129,0.05), rgba(16,185,129,0.01))',
+          border: '1px solid rgba(16,185,129,0.2)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '16px 20px',
+          marginBottom: '20px',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600 }}>
+              Revenue Pipeline
+            </div>
+            <a href="/leads" style={{ fontSize: '11px', color: 'var(--green)', textDecoration: 'none' }}>Manage Leads →</a>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '10px' }}>
+            {[
+              { label: 'Potential', value: `$${(pipeline.total_potential_revenue || 0).toLocaleString()}`, color: 'var(--gold)' },
+              { label: 'Won Revenue', value: `$${(pipeline.won_revenue || 0).toLocaleString()}`, color: 'var(--green)' },
+              { label: 'Contacted', value: pipeline.contacted ?? 0, color: 'var(--blue)' },
+              { label: 'Proposals', value: pipeline.proposals_sent ?? 0, color: 'var(--purple)' },
+              { label: 'Won Deals', value: pipeline.won_deals ?? 0, color: 'var(--green)' },
+              { label: 'Conversion', value: `${pipeline.conversion_rate ?? 0}%`, color: pipeline.conversion_rate > 20 ? 'var(--green)' : 'var(--gold)' },
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{ textAlign: 'center', padding: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '3px' }}>{label}</div>
+                <div style={{ fontSize: '17px', fontWeight: 700, color, fontFamily: 'Space Grotesk' }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          {pipeline.next_best_action && (
+            <div style={{
+              background: 'rgba(16,185,129,0.07)',
+              border: '1px solid rgba(16,185,129,0.2)',
+              borderRadius: '6px',
+              padding: '7px 12px',
+              fontSize: '11px',
+              color: 'var(--green)',
+              display: 'flex',
+              gap: '6px',
+              alignItems: 'center',
+            }}>
+              <span style={{ opacity: 0.7 }}>▶</span>
+              <span><b>Next money action:</b> {pipeline.next_best_action}</span>
+            </div>
+          )}
+          {pipeline.real_leads === 0 && (
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', textAlign: 'center' }}>
+              Реальных лидов пока нет — перейдите в <a href="/leads" style={{ color: 'var(--gold)', textDecoration: 'none' }}>Leads</a>, чтобы добавить первого.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stat cards row */}
       <div style={{
@@ -280,13 +337,19 @@ export default function Dashboard() {
             Next Moves
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {[
-              { n: 1, text: 'Отправить outreach 3 лидам', tag: 'Sales' },
-              { n: 2, text: 'Опубликовать пост в Telegram', tag: 'Content' },
-              { n: 3, text: 'Подготовить демо для SkillUp School', tag: 'Product' },
-              { n: 4, text: 'Обновить прайс-лист услуг', tag: 'Finance' },
-              { n: 5, text: 'Проверить roadmap WAIC 2027', tag: 'Strategy' },
-            ].map(({ n, text, tag }) => (
+            {(pipeline ? [
+              pipeline.real_leads_count === 0 && { n: 1, text: 'Добавьте первого реального лида → раздел Leads', tag: 'Sales' },
+              !pipeline.telegram_connected && { n: 2, text: 'Настройте Telegram-канал → Settings', tag: 'Telegram' },
+              pipeline.next_best_action && { n: 3, text: pipeline.next_best_action, tag: 'Next' },
+              { n: 4, text: 'Сгенерируйте sales-пост → Content', tag: 'Content' },
+              { n: 5, text: 'Проверьте roadmap WAIC 2027 → Strategy', tag: 'Strategy' },
+            ] : [
+              { n: 1, text: 'Запустите backend для получения реальных данных', tag: 'System' },
+              { n: 2, text: 'Добавьте реальных лидов в CRM', tag: 'Sales' },
+              { n: 3, text: 'Настройте Telegram-канал в Settings', tag: 'Telegram' },
+              { n: 4, text: 'Запустите Automation для работы 24/7', tag: 'Auto' },
+              { n: 5, text: 'Откройте Services — посмотрите прайс', tag: 'Services' },
+            ]).filter(Boolean).map(({ n, text, tag }) => (
               <div key={n} style={{
                 display: 'flex',
                 alignItems: 'center',

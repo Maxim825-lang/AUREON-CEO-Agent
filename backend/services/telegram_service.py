@@ -43,3 +43,35 @@ def send_message(text: str) -> dict:
 
 def is_configured() -> bool:
     return bool(_token() and _channel())
+
+
+def get_updates(limit: int = 100) -> dict:
+    token = _token()
+    if not token:
+        raise ValueError("TELEGRAM_BOT_TOKEN не задан в backend/.env")
+
+    url = f"https://api.telegram.org/bot{token}/getUpdates"
+    with httpx.Client(timeout=15) as client:
+        resp = client.get(url, params={"limit": limit, "offset": -limit})
+    resp.raise_for_status()
+    data = resp.json()
+    if not data.get("ok"):
+        raise Exception(data.get("description", "getUpdates failed"))
+
+    updates = []
+    for update in data.get("result", []):
+        msg = update.get("message") or update.get("channel_post") or {}
+        if not msg:
+            continue
+        chat = msg.get("chat", {})
+        from_user = msg.get("from", {})
+        updates.append({
+            "update_id": update.get("update_id"),
+            "chat_id": str(chat.get("id", "")),
+            "username": from_user.get("username") or chat.get("username") or "",
+            "first_name": from_user.get("first_name") or chat.get("first_name") or "",
+            "last_name": from_user.get("last_name") or chat.get("last_name") or "",
+            "message": msg.get("text") or "",
+            "date": msg.get("date"),
+        })
+    return {"updates": updates, "count": len(updates)}

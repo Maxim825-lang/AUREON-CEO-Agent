@@ -3,7 +3,8 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from models import Task, ActionLog, ContentPost, Lead
 from services.content_generator import generate_post
-from services.sales_generator import generate_offer, MOCK_LEADS
+from services.sales_generator import generate_offer
+from services.lead_finder import generate_search_queries
 from services.strategy_engine import get_focus_of_day, get_risk_level
 
 
@@ -84,20 +85,43 @@ def run_ceo_cycle(db: Session) -> dict:
     db.add(action4)
     actions.append({"agent": "Marketing Agent", "action": action4.action, "result": action4.result})
 
-    existing_leads = db.query(Lead).count()
-    if existing_leads < 3:
-        lead_data = random.choice(MOCK_LEADS)
-        lead = Lead(**lead_data)
-        db.add(lead)
+    niche_options = ["Telegram channels", "small business", "education", "bloggers", "e-commerce", "services"]
+    search_niche = random.choice(niche_options)
+    search_location = random.choice(["Russia", "Kazakhstan", "CIS", "Worldwide"])
+    search_service = random.choice(["AI Telegram Bot", "AI Content System", "Business Automation"])
+    queries = generate_search_queries(niche=search_niche, location=search_location, service=search_service, max_results=3)
 
-        action5 = ActionLog(
-            agent="Sales Agent",
-            action="Добавление нового потенциального клиента",
-            result=f"Лид добавлен: {lead_data['name']} ({lead_data['niche']}). Оценка: {lead_data['score']}/100",
-            status="success",
-        )
-        db.add(action5)
-        actions.append({"agent": "Sales Agent", "action": action5.action, "result": action5.result})
+    action5 = ActionLog(
+        agent="Sales Agent",
+        action=f"Генерация поисковых запросов для лидов: {search_niche} / {search_location}",
+        result=f"Запросы: {' | '.join(queries[:3])} — используйте в Google/Yandex для поиска реальных клиентов",
+        status="success",
+    )
+    db.add(action5)
+    actions.append({"agent": "Sales Agent", "action": action5.action, "result": action5.result})
+
+    real_leads = db.query(Lead).filter(Lead.is_demo != 1).all()
+    if real_leads:
+        new_leads = [l for l in real_leads if l.status == "new"]
+        contacted = [l for l in real_leads if l.status == "contacted"]
+        if new_leads:
+            action5b = ActionLog(
+                agent="Sales Agent",
+                action=f"Рекомендация: отправить outreach для {new_leads[0].name}",
+                result=f"Статус 'new' → нужно сгенерировать outreach-сообщение и отправить первый контакт",
+                status="success",
+            )
+            db.add(action5b)
+            actions.append({"agent": "Sales Agent", "action": action5b.action, "result": action5b.result})
+        elif contacted:
+            action5b = ActionLog(
+                agent="Sales Agent",
+                action=f"Рекомендация: отправить КП для {contacted[0].name}",
+                result=f"Лид в статусе 'contacted' → готовы к генерации оффера",
+                status="success",
+            )
+            db.add(action5b)
+            actions.append({"agent": "Sales Agent", "action": action5b.action, "result": action5b.result})
 
     revenue_note = random.choice([
         "Текущие расходы под контролем. API-расходы: $0 (нет реальных звонков)",
